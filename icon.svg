@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#0f0f1a"/>
+
+  <!-- Tail feathers -->
+  <path d="M310 370 Q340 430 290 470 Q270 480 260 460 Q280 420 295 385Z" fill="#2a7a3a"/>
+  <path d="M330 380 Q375 435 340 475 Q318 488 308 465 Q330 425 320 390Z" fill="#1d6b2e"/>
+  <path d="M348 395 Q405 445 378 488 Q355 502 344 480 Q360 440 348 408Z" fill="#4a9a5a"/>
+
+  <!-- Body -->
+  <ellipse cx="255" cy="300" rx="100" ry="115" fill="#2e8b4a"/>
+
+  <!-- Wing detail -->
+  <path d="M175 270 Q155 310 165 355 Q195 340 220 300 Q230 280 215 265Z" fill="#1d6b2e"/>
+  <path d="M178 275 Q160 308 170 348 Q192 336 215 300 Q224 282 211 268Z" fill="#3aab55"/>
+  <!-- Wing feather lines -->
+  <path d="M180 290 Q168 318 172 340" stroke="#1d6b2e" stroke-width="2" fill="none"/>
+  <path d="M192 284 Q182 312 186 336" stroke="#1d6b2e" stroke-width="2" fill="none"/>
+  <path d="M204 280 Q196 308 200 330" stroke="#1d6b2e" stroke-width="2" fill="none"/>
+
+  <!-- Chest / belly lighter -->
+  <ellipse cx="268" cy="330" rx="55" ry="70" fill="#4fc466"/>
+
+  <!-- Neck & head base -->
+  <ellipse cx="262" cy="195" rx="75" ry="80" fill="#2e8b4a"/>
+
+  <!-- Head -->
+  <circle cx="268" cy="168" r="68" fill="#3aab55"/>
+
+  <!-- Forehead yellow patch -->
+  <ellipse cx="250" cy="140" rx="30" ry="22" fill="#f5c842" opacity="0.9"/>
+
+  <!-- Red cheek patch -->
+  <ellipse cx="305" cy="178" rx="22" ry="18" fill="#e05a30"/>
+
+  <!-- Eye ring -->
+  <circle cx="288" cy="152" r="16" fill="#f5f0e0"/>
+  <!-- Eye -->
+  <circle cx="288" cy="152" r="10" fill="#1a1a2e"/>
+  <!-- Eye highlight -->
+  <circle cx="292" cy="148" r="3.5" fill="white" opacity="0.9"/>
+  <circle cx="284" cy="155" r="1.5" fill="white" opacity="0.5"/>
+
+  <!-- Upper beak -->
+  <path d="M305 162 Q345 155 355 170 Q345 188 310 182 Q298 178 298 170Z" fill="#e8c84a"/>
+  <!-- Lower beak -->
+  <path d="M308 182 Q340 178 345 190 Q335 200 310 196 Q300 192 300 186Z" fill="#c9a830"/>
+  <!-- Beak nostril -->
+  <ellipse cx="330" cy="163" rx="4" ry="3" fill="#b8952a" opacity="0.6"/>
+
+  <!-- Crown feathers / crest -->
+  <path d="M230 108 Q220 72 208 52 Q225 75 245 100Z" fill="#f5c842"/>
+  <path d="M248 102 Q242 62 238 40 Q252 68 262 98Z" fill="#4fc466"/>
+  <path d="M264 100 Q265 58 268 36 Q275 64 274 98Z" fill="#f5c842"/>
+  <path d="M278 102 Q285 62 292 42 Q290 70 285 100Z" fill="#4fc466"/>
+
+  <!-- Feet/perch hint -->
+  <path d="M220 405 Q215 428 205 440 Q200 445 195 440" stroke="#c9a830" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M205 440 Q195 450 185 448" stroke="#c9a830" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M205 440 Q200 452 192 455" stroke="#c9a830" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M205 440 Q208 453 202 458" stroke="#c9a830" stroke-width="4" stroke-linecap="round" fill="none"/>
+
+  <path d="M295 400 Q295 422 300 435 Q303 441 308 437" stroke="#c9a830" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M308 437 Q318 448 326 445" stroke="#c9a830" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M308 437 Q312 450 320 453" stroke="#c9a830" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M308 437 Q305 452 310 457" stroke="#c9a830" stroke-width="4" stroke-linecap="round" fill="none"/>
+</svg>
