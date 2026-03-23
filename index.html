@@ -166,6 +166,18 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 #imgViewer img{max-width:100%;max-height:100%;object-fit:contain;}
 #imgViewerClose{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.08);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 ::-webkit-scrollbar{width:3px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* INLINE PHOTO BUBBLES */
+.photo-row{display:flex;align-items:flex-end;gap:7px;}
+.photo-bubble{max-width:62%;border-radius:16px 16px 16px 3px;overflow:hidden;cursor:pointer;border:1px solid var(--border);position:relative;background:var(--surface2);}
+.photo-bubble img{width:100%;display:block;}
+.photo-loading{width:160px;height:213px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:.75rem;}
+.photo-loading .spin{font-size:1.2rem;color:var(--accent2);}
+.photo-expired{width:160px;height:60px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:.72rem;font-style:italic;}
+/* Camera button */
+#camBtn{width:42px;height:42px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:1.05rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+#camBtn:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2);}
+#camBtn:disabled{opacity:.4;pointer-events:none;}
 </style>
 </head>
 <body>
@@ -217,6 +229,7 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
     </div>
   </div>
   <div class="input-bar">
+    <button id="camBtn" onclick="requestPhoto()" title="Ask for a photo">📷</button>
     <textarea id="msgInput" placeholder="Message…" rows="1" onkeydown="inputKeydown(event)" oninput="autoGrow(this)"></textarea>
     <button id="sendBtn" onclick="sendMessage()">➤</button>
   </div>
@@ -466,8 +479,154 @@ function doVenice(prompt,vKey,model,seed,onDone,onError){
 }
 
 // ═══════════════════════════════════════════════════
-// WIZARD
+// INLINE PHOTO ENGINE
 // ═══════════════════════════════════════════════════
+
+// Build Venice prompt from her wizard data + scene description from AI tag
+function buildPhotoPrompt(sceneDesc){
+  var d0=wizData[0]||{},d1=wizData[1]||{},d2=wizData[2]||{},d6=wizData[6]||{};
+  var base=[];
+  // Identity
+  var age=v(d0,'w_age');var eth=eth0();
+  if(age)base.push(age+' year old woman');
+  if(eth)base.push(eth);
+  // Face
+  if(v(d1,'w_skin'))base.push(v(d1,'w_skin')+' skin');
+  if(v(d1,'w_hair_colour')&&v(d1,'w_hair_length'))base.push(v(d1,'w_hair_colour')+' '+v(d1,'w_hair_length')+' hair');
+  if(v(d1,'w_hair_style')&&v(d1,'w_hair_style')!=='Other')base.push(v(d1,'w_hair_style'));
+  if(v(d1,'w_eye_colour'))base.push(v(d1,'w_eye_colour')+' eyes');
+  if(v(d1,'w_face_feature'))base.push(v(d1,'w_face_feature'));
+  // Body
+  if(v(d2,'w_bodytype'))base.push(v(d2,'w_bodytype')+' body');
+  if(v(d2,'w_breast_size'))base.push(v(d2,'w_breast_size')+' breasts');
+  // Heat-level quality tail
+  var heat=v(d6,'w_heat')||'explicit';
+  var tail={
+    flirty:'clothed, tasteful, suggestive pose, fully dressed, photorealistic, sharp focus, studio quality, 8k',
+    suggestive:'sensual, lingerie or partial nudity, tasteful explicit, photorealistic, sharp focus, intimate lighting, 8k',
+    explicit:'nude, fully explicit, uncensored, photorealistic, sharp focus, detailed skin, intimate lighting, 8k'
+  }[heat]||'photorealistic, sharp focus, 8k';
+  // Combine: base appearance + scene from AI tag + quality tail
+  var sceneClean=sceneDesc.replace(/\[PHOTO:\s*/i,'').replace(/\]$/,'').trim();
+  return base.join(', ')+', '+sceneClean+', '+tail;
+}
+
+// Parse AI response for [PHOTO: ...] tags.
+// Returns { cleanText, photos: [{desc}] }
+function parsePhotoTags(rawText){
+  var photos=[];
+  var clean=rawText.replace(/\[PHOTO:\s*([^\]]+)\]/gi,function(_,desc){
+    photos.push(desc.trim());
+    return '';
+  }).replace(/\s{2,}/g,' ').trim();
+  return {cleanText:clean, photos:photos};
+}
+
+// Render a photo loading placeholder row, returns the img element to fill later
+function addPhotoRow(){ 
+  var row=document.createElement('div');row.className='msg-row photo-row';
+  var ava=mkAva();
+  var bub=document.createElement('div');bub.className='photo-bubble';
+  var loading=document.createElement('div');loading.className='photo-loading';
+  loading.innerHTML='<span class="spin">✦</span><span>Sending photo…</span>';
+  bub.appendChild(loading);
+  var tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime();
+  row.appendChild(ava);row.appendChild(bub);row.appendChild(tm);
+  $('messages').appendChild(row);scrollBot();
+  return {row:row,bub:bub,loading:loading};
+}
+
+// Fill a photo row with the generated image
+function fillPhotoRow(handles, b64, sceneDesc){
+  handles.loading.remove();
+  var img=document.createElement('img');
+  img.src='data:image/jpeg;base64,'+b64;
+  img.alt='Photo from '+partner.name;
+  img.onclick=function(){$('imgViewerImg').src=img.src;$('imgViewer').classList.add('open');};
+  handles.bub.appendChild(img);
+  scrollBot();
+  // Store in msgs as a photo record (b64 kept for history display)
+  msgs.push({role:'photo',imageB64:b64,scene:sceneDesc,ts:Date.now()});
+  save();
+}
+
+// Error state for a photo row
+function failPhotoRow(handles){
+  handles.loading.remove();
+  var expired=document.createElement('div');expired.className='photo-expired';
+  expired.textContent='📷 Photo failed';
+  handles.bub.appendChild(expired);
+}
+
+// Fire Venice for a single photo tag description
+function firePhoto(sceneDesc){
+  var keys=getKeys();
+  var vKey=keys.veniceKey||'';
+  if(!vKey){toast('Venice key needed for photos — add in Settings ⚙');return;}
+  var model=keys.imgModel||'hidream-i1-full';
+  var seed=Math.floor(Math.random()*999999999)+1;
+  var prompt=buildPhotoPrompt(sceneDesc);
+  var handles=addPhotoRow();
+  doVenice(prompt,vKey,model,seed,
+    function(b64){fillPhotoRow(handles,b64,sceneDesc);},
+    function(err){failPhotoRow(handles);toast('Photo failed: '+(err?err.message:'').slice(0,40));}
+  );
+}
+
+// User-initiated photo request — sends invisible trigger to AI
+function requestPhoto(){
+  if(busy)return;
+  var keys=getKeys(),orKey=keys.orKey||'';
+  if(!orKey){toast('Add OpenRouter key in Settings ⚙');openSettings();return;}
+  if(!partner.name||partner.name==='Your Companion'){toast('Set up your companion first');openWizard();return;}
+  // Build API messages with a low-profile request injected
+  var apiMsgs=buildMsgs();
+  apiMsgs.push({role:'user',content:'[send me a photo of yourself right now]'});
+  // Show a compact user nudge in chat
+  var nudge=document.createElement('div');
+  nudge.style.cssText='text-align:right;font-size:.68rem;color:var(--muted);padding:2px 14px;font-style:italic;';
+  nudge.textContent='📷 Photo requested';
+  $('messages').appendChild(nudge);scrollBot();
+  $('emptyChat').style.display='none';
+  var typId='typ-'+Date.now();addTyping(typId);
+  busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;
+  var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
+  var maxTok=parseInt(keys.maxTokens)||500;
+  var stream=null,first=true;
+  streamFetch(orKey,model,apiMsgs,{maxTokens:maxTok,
+    onChunk:function(txt){if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}if(stream){var parsed=parsePhotoTags(txt);updateStream(stream,parsed.cleanText||'…');}},
+    onDone:function(txt){
+      removeEl(typId);
+      var parsed=parsePhotoTags(txt);
+      var cleanTxt=parsed.cleanText;
+      if(first){if(cleanTxt)addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
+      if(cleanTxt)msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+      // Fire photo generation for each tag found
+      parsed.photos.forEach(function(desc){firePhoto(desc);});
+      // If AI sent no tag, fire one anyway using a contextual default
+      if(!parsed.photos.length){
+        var fallback=buildDefaultSceneDesc();
+        firePhoto(fallback);
+      }
+      save();busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+    },
+    onError:function(err){removeEl(typId);if(stream)stream.remove();addError(err?err.message:'Error');busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;}
+  });
+}
+
+// Fallback scene description if AI forgets to include a tag
+function buildDefaultSceneDesc(){
+  var d2=wizData[2]||{},d5=wizData[5]||{};
+  var heat=(wizData[6]||{}).w_heat||'explicit';
+  var defaults={
+    flirty:['sitting casually, warm smile, fully clothed','leaning against a wall, playful expression','looking out a window, relaxed and natural'],
+    suggestive:['sitting on bed in lingerie, soft light','standing in doorway in underwear, looking back','kneeling on sheets, hair loose'],
+    explicit:['lying back on bed, naked, direct gaze at camera','standing nude, confident, natural light','kneeling on the floor, fully exposed, flushed']
+  };
+  var opts=defaults[heat]||defaults.explicit;
+  return opts[Math.floor(Math.random()*opts.length)];
+}
+
 var wizStep=0, wizData={};
 var WIZ_N=8;
 var WIZ_TITLES=['Identity','Face','Body','Voice & Communication','Her World','Personality','Desires & Dynamic','Memory Seeds'];
@@ -807,6 +966,30 @@ function buildSysPrompt(){
   lines.push('— Reference her world naturally — her job, city, and daily life details should surface organically.');
   lines.push('— The established history is real. Reference it at natural moments, not all at once at the start.');
   if(yourName)lines.push('— Address him as '+(calls&&calls!=='Your first name'?calls:yourName)+'.');
+
+  // Photo sending instructions
+  var heatPhoto={
+    flirty:'All photos must be tasteful and clothed — suggestive but nothing explicit. Think fashion shoot energy.',
+    suggestive:'Photos can show lingerie, partial nudity, or bare skin — sensual but not pornographic.',
+    explicit:'Photos can be fully explicit and nude. Be specific about what is visible and how she is posed.'
+  }[v(d6,'w_heat')||'explicit']||'';
+  lines.push('\nPHOTO SENDING:');
+  lines.push('You can send photos of yourself by including [PHOTO: scene description] anywhere in your message.');
+  lines.push('The description becomes a visual — be specific about pose, clothing state, setting, expression, and mood.');
+  lines.push('Send photos autonomously when it feels natural: max 1 per 4–6 messages. Good moments:');
+  lines.push('— When describing what you\'re wearing or doing right now');
+  lines.push('— When the mood turns flirtatious or intimate and showing feels more powerful than saying');
+  lines.push('— When responding to a compliment about your body');
+  lines.push('— When transitioning into an explicit moment');
+  lines.push('— When he asks, or when it would surprise him pleasantly');
+  lines.push('Photo content rule: '+heatPhoto);
+  lines.push('Format: [PHOTO: description here] — place at a natural pause or end of message.');
+  lines.push('Examples of good descriptions:');
+  lines.push('[PHOTO: sitting on the edge of the bed in just a shirt, looking back over shoulder, morning light]');
+  lines.push('[PHOTO: bathroom mirror selfie, hair damp, towel slipping, slight smirk]');
+  lines.push('[PHOTO: close up, flushed, lip between teeth, eyes heavy]');
+  lines.push('Never announce "here\'s a photo" — just include the tag and keep talking naturally around it.');
+
   return lines.filter(Boolean).join('\n');
 }
 
@@ -852,14 +1035,26 @@ function sendMessage(){
   input.value='';input.style.height='';autoGrow(input);
   $('emptyChat').style.display='none';
   var typId='typ-'+Date.now();addTyping(typId);
-  busy=true;$('sendBtn').disabled=true;
+  busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
   var maxTok=parseInt(keys.maxTokens)||500;
   var stream=null,first=true;
   streamFetch(orKey,model,buildMsgs(),{maxTokens:maxTok,
-    onChunk:function(txt){if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}if(stream)updateStream(stream,txt);},
-    onDone:function(txt){removeEl(typId);if(first)addBubble('assistant',txt);else if(stream)finaliseStream(stream,txt);msgs.push({role:'assistant',content:txt,ts:Date.now()});save();busy=false;$('sendBtn').disabled=false;},
-    onError:function(err){removeEl(typId);if(stream)stream.remove();addError(err?err.message:'Error');busy=false;$('sendBtn').disabled=false;}
+    onChunk:function(txt){
+      if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}
+      if(stream){var p=parsePhotoTags(txt);updateStream(stream,p.cleanText||'…');}
+    },
+    onDone:function(txt){
+      removeEl(typId);
+      var parsed=parsePhotoTags(txt);
+      var cleanTxt=parsed.cleanText;
+      if(first){if(cleanTxt)addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
+      if(cleanTxt)msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+      // Fire a Venice call for each [PHOTO: ...] tag the AI included
+      parsed.photos.forEach(function(desc){firePhoto(desc);});
+      save();busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+    },
+    onError:function(err){removeEl(typId);if(stream)stream.remove();addError(err?err.message:'Error');busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;}
   });
 }
 
@@ -882,8 +1077,32 @@ function updateStream(row,txt){var b=row.querySelector('.bubble');if(b)b.textCon
 function finaliseStream(row,txt){var b=row.querySelector('.bubble');if(b){b.textContent=txt;b.classList.remove('streaming');}}
 function addError(msg){var d=document.createElement('div');d.style.cssText='text-align:center;font-size:.7rem;color:#c0392b;padding:6px 12px;';d.textContent='⚠ '+msg;$('messages').appendChild(d);scrollBot();}
 function scrollBot(){var m=$('messages');m.scrollTop=m.scrollHeight;}
-function fmtTime(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
-function renderHistory(){document.querySelectorAll('.msg-row').forEach(function(r){r.remove();});if(!msgs.length){$('emptyChat').style.display='';return;}$('emptyChat').style.display='none';msgs.forEach(function(m){addBubble(m.role,m.content);});}
+function fmtTime(ts){var d=ts?new Date(ts):new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+function renderHistory(){
+  document.querySelectorAll('.msg-row,.photo-row').forEach(function(r){r.remove();});
+  if(!msgs.length){$('emptyChat').style.display='';return;}
+  $('emptyChat').style.display='none';
+  msgs.forEach(function(m){
+    if(m.role==='photo'){
+      // Render stored photo inline
+      var row=document.createElement('div');row.className='msg-row photo-row';
+      var ava=mkAva();
+      var bub=document.createElement('div');bub.className='photo-bubble';
+      if(m.imageB64){
+        var img=document.createElement('img');img.src='data:image/jpeg;base64,'+m.imageB64;
+        img.onclick=function(){$('imgViewerImg').src=img.src;$('imgViewer').classList.add('open');};
+        bub.appendChild(img);
+      } else {
+        var exp=document.createElement('div');exp.className='photo-expired';exp.textContent='📷 Photo expired';bub.appendChild(exp);
+      }
+      var tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(m.ts);
+      row.appendChild(ava);row.appendChild(bub);row.appendChild(tm);
+      $('messages').appendChild(row);
+    } else {
+      addBubble(m.role,m.content);
+    }
+  });
+}
 
 // ═══════════════════════════════════════════════════
 // HEADER & UI
