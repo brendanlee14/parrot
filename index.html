@@ -598,9 +598,13 @@ function requestPhoto(){
     onDone:function(txt){
       removeEl(typId);
       var parsed=parsePhotoTags(txt);
-      var cleanTxt=parsed.cleanText;
-      if(first){if(cleanTxt)addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
-      if(cleanTxt)msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+      var cleanTxt=parsed.cleanText.trim();
+      if(cleanTxt){
+        if(first){addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
+        msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+      } else {
+        if(stream)stream.remove();
+      }
       // Fire photo generation for each tag found
       parsed.photos.forEach(function(desc){firePhoto(desc);});
       // If AI sent no tag, fire one anyway using a contextual default
@@ -1021,7 +1025,12 @@ function finishWizard(){
 function buildMsgs(){
   var sys=partner.systemPrompt||'You are a warm, intimate AI companion. Be engaging and personal.';
   var out=[{role:'system',content:sys}];
-  msgs.slice(-HIST).forEach(function(m){out.push({role:m.role,content:m.content});});
+  // Filter out photo records and any blank-content messages before sending to API
+  msgs.slice(-HIST).forEach(function(m){
+    if(m.role==='photo')return;
+    if(!m.content||!m.content.trim())return;
+    out.push({role:m.role,content:m.content});
+  });
   return out;
 }
 function sendMessage(){
@@ -1047,9 +1056,15 @@ function sendMessage(){
     onDone:function(txt){
       removeEl(typId);
       var parsed=parsePhotoTags(txt);
-      var cleanTxt=parsed.cleanText;
-      if(first){if(cleanTxt)addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
-      if(cleanTxt)msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+      var cleanTxt=parsed.cleanText.trim();
+      // Only render and store text if there's actual content
+      if(cleanTxt){
+        if(first){addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
+        msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+      } else {
+        // AI sent only a photo tag — remove the streaming bubble if it exists
+        if(stream)stream.remove();
+      }
       // Fire a Venice call for each [PHOTO: ...] tag the AI included
       parsed.photos.forEach(function(desc){firePhoto(desc);});
       save();busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
