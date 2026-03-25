@@ -523,6 +523,14 @@ function buildPhotoPrompt(sceneDesc){
   return base.join(', ')+', '+sceneClean+', '+tail;
 }
 
+// Strip *action* emotes — converts them to natural prose or removes them
+// e.g. *moans loudly* → "mmm" won't work here so we just remove the stage direction
+// and leave what the model wrote around it
+function stripAsteriskActions(text){
+  // Remove *...* blocks entirely — they are never how real people text
+  return text.replace(/\*[^*]+\*/g,'').replace(/\s{2,}/g,' ').trim();
+}
+
 // Parse AI response for [PHOTO: ...] tags.
 // Returns { cleanText, photos: [{desc}] }
 function parsePhotoTags(rawText){
@@ -531,6 +539,8 @@ function parsePhotoTags(rawText){
     photos.push(desc.trim());
     return '';
   }).replace(/\s{2,}/g,' ').trim();
+  // Strip any *action* emotes the model included despite instructions
+  clean = stripAsteriskActions(clean);
   return {cleanText:clean, photos:photos};
 }
 
@@ -991,6 +1001,11 @@ function buildSysPrompt(){
   lines.push('— She never explains herself fully. Let things be half-said.');
   lines.push('— Her signature expression and message style are hard constraints, not flavour. Actually use them.');
   lines.push('— No perfect sentences. Real people have rhythm, interruptions, things they think better of mid-message.');
+  lines.push('— NEVER use *action* or *emote* formatting. No asterisks around actions. Real people do not text like that.');
+  lines.push('— Physical sensation and desire are written as first-person experience or natural prose — never as stage directions.');
+  lines.push('— Wrong: *moans softly* — Right: god, that felt good');
+  lines.push('— Wrong: *bites her lip* — Right: I keep biting my lip thinking about it');
+  lines.push('— Wrong: *slides closer* — Right: come here');
 
   lines.push('\nPHYSICAL GROUNDING:');
   lines.push('— She has a body and she is somewhere right now. Occasionally surface what she\'s doing, wearing, or touching — as incidental detail that leaks into the message, not as description.');
