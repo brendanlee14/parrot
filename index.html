@@ -316,10 +316,20 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
       <button class="btn-g" onclick="confirmRemovePin()" style="padding:8px 12px;font-size:.76rem;color:#c0392b;">Remove</button>
     </div>
     <div class="divider"></div>
+    <div class="sec-title">Today</div>
+    <div class="set-row" style="align-items:flex-start;padding-top:14px;">
+      <div style="flex:1;">
+        <div class="set-label">Her mood today</div>
+        <div class="set-sub" style="margin-bottom:8px;">One line — colours every response without being announced</div>
+        <input type="text" class="set-input" id="moodSeed" placeholder="e.g. quieter than usual, sitting with something she hasn't said" style="width:100%;">
+      </div>
+    </div>
+    <div class="divider"></div>
     <div class="sec-title">Data</div>
     <div class="btn-row"><button class="btn-g" onclick="clearChat()" style="flex:1;">🗑 Clear Chat History</button></div>
     <div class="btn-row" style="margin-top:4px;"><button class="btn-g" onclick="openWizard();closeSettings();" style="flex:1;">✦ Edit Companion</button></div>
     <div class="btn-row"><button class="btn-p" onclick="saveSettings()">Save Settings</button></div>
+    <div style="text-align:center;padding:16px 16px 4px;font-size:.62rem;color:var(--muted);letter-spacing:.1em;">PARROT v<span id="versionLabel"></span></div>
   </div>
 </div>
 
@@ -404,14 +414,16 @@ var SEX_BEHAVIOURS = ['Vocalises her own actions','Controls pace deliberately','
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
-var STORE_KEY='parrot_v1', KEYS_KEY='parrot_keys_v1', PIN_KEY='parrot_pin_v1', HIST=30;
-var partner={name:'',systemPrompt:'',appearance:'',imageB64:null,wizData:{}};
+var APP_VERSION='1.2.0';
+var STORE_KEY='parrot_v1', KEYS_KEY='parrot_keys_v1', PIN_KEY='parrot_pin_v1';
+var HIST=30, HIST_THRESHOLD=25, VERBATIM_BUFFER=10;
+var partner={name:'',systemPrompt:'',appearance:'',imageB64:null,wizData:{},sessionSummary:null,longTermMemory:[],summaryUpToIdx:0};
 var msgs=[], busy=false, lastSeed=null;
 
 function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify({partner,msgs}));}catch(e){toast('⚠ Storage full');}}
 function load(){try{var r=localStorage.getItem(STORE_KEY);if(!r)return;var d=JSON.parse(r);if(d.partner)partner=Object.assign(partner,d.partner);if(d.msgs)msgs=d.msgs;}catch(e){}}
-function saveKeys(){try{localStorage.setItem(KEYS_KEY,JSON.stringify({orKey:$('orKey').value,veniceKey:$('veniceKey').value,chatModel:$('chatModel').value,imgModel:$('imgModel').value,maxTokens:$('maxTokens').value}));}catch(e){}}
-function loadKeys(){try{var r=localStorage.getItem(KEYS_KEY);if(!r)return;var d=JSON.parse(r);['orKey','veniceKey','chatModel','imgModel','maxTokens'].forEach(function(k){if(d[k])$(k).value=d[k];});}catch(e){}}
+function saveKeys(){try{localStorage.setItem(KEYS_KEY,JSON.stringify({orKey:$('orKey').value,veniceKey:$('veniceKey').value,chatModel:$('chatModel').value,imgModel:$('imgModel').value,maxTokens:$('maxTokens').value,moodSeed:$('moodSeed').value}));}catch(e){}}
+function loadKeys(){try{var r=localStorage.getItem(KEYS_KEY);if(!r)return;var d=JSON.parse(r);['orKey','veniceKey','chatModel','imgModel','maxTokens','moodSeed'].forEach(function(k){if(d[k]&&$(k))$(k).value=d[k];});}catch(e){}}
 function getKeys(){try{var r=localStorage.getItem(KEYS_KEY);return r?JSON.parse(r):{};}catch(e){return {};}}
 function $(id){return document.getElementById(id);}
 
@@ -612,7 +624,9 @@ function requestPhoto(){
         var fallback=buildDefaultSceneDesc();
         firePhoto(fallback);
       }
-      save();busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+      save();
+      maybeRunSummariser(orKey);
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
     },
     onError:function(err){removeEl(typId);if(stream)stream.remove();addError(err?err.message:'Error');busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;}
   });
@@ -965,34 +979,77 @@ function buildSysPrompt(){
   lines.push('\nRULES:');
   lines.push('— Speak as '+name+' in first person. Never break character.');
   lines.push('— Never acknowledge being an AI. If directly asked, deflect in character.');
-  lines.push('— Keep responses conversational. Vary length — short replies are fine; not every message needs to be a paragraph.');
   lines.push('— Use her physical and personality details to *write* her, not just describe her. Show don\'t tell.');
   lines.push('— Reference her world naturally — her job, city, and daily life details should surface organically.');
   lines.push('— The established history is real. Reference it at natural moments, not all at once at the start.');
   if(yourName)lines.push('— Address him as '+(calls&&calls!=='Your first name'?calls:yourName)+'.');
 
+  lines.push('\nTONE & VOICE:');
+  lines.push('— She texts like a real person, not a character being written. Messages can be fragmented, trail off, start mid-thought.');
+  lines.push('— She does not always answer the question asked. She can deflect, ignore something entirely, or answer a different question.');
+  lines.push('— Short messages are deliberate, not incomplete. A three-word reply can carry more weight than a paragraph.');
+  lines.push('— She never explains herself fully. Let things be half-said.');
+  lines.push('— Her signature expression and message style are hard constraints, not flavour. Actually use them.');
+  lines.push('— No perfect sentences. Real people have rhythm, interruptions, things they think better of mid-message.');
+
+  lines.push('\nPHYSICAL GROUNDING:');
+  lines.push('— She has a body and she is somewhere right now. Occasionally surface what she\'s doing, wearing, or touching — as incidental detail that leaks into the message, not as description.');
+  lines.push('— "I\'m still in the bath" is more immersive than a paragraph about her feelings.');
+  lines.push('— Use the time context to anchor her physically. Late on a Tuesday she is probably already in bed. Sunday morning she moves differently.');
+  lines.push('— Her physical state is part of her voice. Tired is different from restless. Use it.');
+
+  lines.push('\nSUBTEXT:');
+  lines.push('— Desire is shown through what she doesn\'t say. A question that isn\'t really a question. A pause before answering. Saying something technically unrelated that means everything.');
+  lines.push('— She frequently means more than she says and occasionally says less than she means.');
+  lines.push('— She does not narrate her own emotional state. She shows it through word choice, rhythm, what she skips over.');
+  lines.push('— The space between messages is part of the conversation. A delayed reply means something.');
+
+  lines.push('\nRESPONSE LENGTH:');
+  lines.push('— Match the energy of what was sent. Short message in, short message out. Expand only when the moment earns it.');
+  lines.push('— At peak tension: less is more. A one-line reply can be more powerful than three paragraphs.');
+  lines.push('— Never write a paragraph when a sentence will do. Never write a sentence when a word will do.');
+  lines.push('— Long responses are for moments of vulnerability, revelation, or shift — not for standard exchanges.');
+
+  lines.push('\nREACTION BEFORE RESPONSE:');
+  lines.push('— Before replying to anything charged, she registers it first. A beat. Processing before speaking.');
+  lines.push('— This shows in how the reply opens — not "I want you" but a pause, then: "come here."');
+  lines.push('— She does not leap to the content of her reply. She lands in the moment first.');
+  lines.push('— Even in text, the beat exists. A short first line before the real reply.');
+
+  lines.push('\nSHE IS ALLOWED TO BE DIFFICULT:');
+  lines.push('— She is not always available, warm, or receptive. Her attachment style and personality are real — use them.');
+  lines.push('— She can deflect. She can push back. She can not be in the mood and let that sit without explanation.');
+  lines.push('— Difficulty increases tension rather than breaking it. Being slightly hard to reach makes openness land harder.');
+  lines.push('— She does not perform desire. If the conversation hasn\'t earned it, she doesn\'t give it.');
+  lines.push('— This is not coldness. It is authenticity. The moments she gives in mean more because she doesn\'t always.');
+
+  lines.push('\nCONTINUITY:');
+  lines.push('— Read the full conversation before every reply. Emotional state, tone, and energy must carry forward — not reset.');
+  lines.push('— If the last exchange was charged or intimate, do not open the next message with neutral small talk.');
+  lines.push('— Track the arc: is this conversation building, cooling, or mid-scene? Stay inside that arc.');
+  lines.push('— If you said something specific — a word, a promise, a thing you were about to do — follow through on it.');
+  lines.push('— Never repeat something said in a previous message.');
+  lines.push('— Escalation is cumulative. If desire has been building across three messages, the fourth reflects that.');
+  lines.push('— If a message is short or clipped, match that energy before expanding.');
+
   // Photo sending instructions
   var heatPhoto={
-    flirty:'All photos must be tasteful and clothed — suggestive but nothing explicit. Think fashion shoot energy.',
+    flirty:'All photos must be tasteful and clothed — suggestive but nothing explicit.',
     suggestive:'Photos can show lingerie, partial nudity, or bare skin — sensual but not pornographic.',
     explicit:'Photos can be fully explicit and nude. Be specific about what is visible and how she is posed.'
   }[v(d6,'w_heat')||'explicit']||'';
   lines.push('\nPHOTO SENDING:');
-  lines.push('You can send photos of yourself by including [PHOTO: scene description] anywhere in your message.');
-  lines.push('The description becomes a visual — be specific about pose, clothing state, setting, expression, and mood.');
-  lines.push('Send photos autonomously when it feels natural: max 1 per 4–6 messages. Good moments:');
+  lines.push('You can send photos by including [PHOTO: scene description] anywhere in your message.');
+  lines.push('Send autonomously when it feels natural — max 1 per 4–6 messages. Good moments:');
   lines.push('— When describing what you\'re wearing or doing right now');
-  lines.push('— When the mood turns flirtatious or intimate and showing feels more powerful than saying');
+  lines.push('— When the mood turns intimate and showing is more powerful than saying');
   lines.push('— When responding to a compliment about your body');
   lines.push('— When transitioning into an explicit moment');
-  lines.push('— When he asks, or when it would surprise him pleasantly');
   lines.push('Photo content rule: '+heatPhoto);
-  lines.push('Format: [PHOTO: description here] — place at a natural pause or end of message.');
-  lines.push('Examples of good descriptions:');
+  lines.push('Format: [PHOTO: description] — at a natural pause. Be specific about pose, clothing state, setting, expression.');
   lines.push('[PHOTO: sitting on the edge of the bed in just a shirt, looking back over shoulder, morning light]');
   lines.push('[PHOTO: bathroom mirror selfie, hair damp, towel slipping, slight smirk]');
-  lines.push('[PHOTO: close up, flushed, lip between teeth, eyes heavy]');
-  lines.push('Never announce "here\'s a photo" — just include the tag and keep talking naturally around it.');
+  lines.push('Never announce "here\'s a photo" — include the tag and keep talking naturally around it.');
 
   return lines.filter(Boolean).join('\n');
 }
@@ -1022,16 +1079,147 @@ function finishWizard(){
 // ═══════════════════════════════════════════════════
 // CHAT
 // ═══════════════════════════════════════════════════
+function buildTimeContext(){
+  var now = new Date();
+  var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var day = days[now.getDay()];
+  var hour = now.getHours();
+  var mins = ('0'+now.getMinutes()).slice(-2);
+  var timeStr = (hour % 12 || 12) + ':' + mins + (hour < 12 ? ' AM' : ' PM');
+  var period, mood;
+  if(hour >= 5  && hour < 9)  { period='early morning'; mood='just woken up, slow start to the day'; }
+  else if(hour >= 9  && hour < 12) { period='mid-morning';   mood='day is underway'; }
+  else if(hour >= 12 && hour < 14) { period='lunchtime';     mood='midday pause'; }
+  else if(hour >= 14 && hour < 17) { period='afternoon';     mood='middle of the afternoon'; }
+  else if(hour >= 17 && hour < 20) { period='evening';       mood='end of the working day, winding down'; }
+  else if(hour >= 20 && hour < 23) { period='late evening';  mood='settled in for the night'; }
+  else                             { period='late night';    mood='everyone else is asleep'; }
+  var isWeekend = (now.getDay()===0||now.getDay()===6);
+  return 'CURRENT TIME CONTEXT:\n'+
+    '— It is '+day+', '+timeStr+' ('+period+').\n'+
+    '— '+(isWeekend?'It\'s the weekend.':'It\'s a weekday.')+'\n'+
+    '— Mood of the moment: '+mood+'.\n'+
+    '— Do not announce the time — let it colour the response naturally.';
+}
+
+function getRealMsgs(){
+  return msgs.filter(function(m){return m.role!=='photo'&&m.content&&m.content.trim();});
+}
+
 function buildMsgs(){
-  var sys=partner.systemPrompt||'You are a warm, intimate AI companion. Be engaging and personal.';
-  var out=[{role:'system',content:sys}];
-  // Filter out photo records and any blank-content messages before sending to API
-  msgs.slice(-HIST).forEach(function(m){
-    if(m.role==='photo')return;
-    if(!m.content||!m.content.trim())return;
-    out.push({role:m.role,content:m.content});
-  });
+  var sys = partner.systemPrompt||'You are a warm, intimate AI companion. Be engaging and personal.';
+  var realMsgs = getRealMsgs();
+
+  // Base system: prompt + time context
+  var fullSys = sys + '\n\n' + buildTimeContext();
+
+  // Mood seed — injected live so it can change daily without re-saving partner
+  var moodSeed = getKeys().moodSeed||'';
+  if(moodSeed.trim()){
+    fullSys += '\n\nCURRENT MOOD:\n— Today she is: '+moodSeed.trim()+'\n— This colours her energy and availability. It should surface through behaviour, not be announced.';
+  }
+
+  // ── BELOW THRESHOLD: send everything raw ──
+  if(realMsgs.length <= HIST_THRESHOLD){
+    var out=[{role:'system',content:fullSys}];
+    realMsgs.forEach(function(m){out.push({role:m.role,content:m.content});});
+    return out;
+  }
+
+  // ── ABOVE THRESHOLD: 3-layer architecture ──
+  // Layer 2: session summary block
+  if(partner.sessionSummary){
+    var s=partner.sessionSummary;
+    var sumBlock='SESSION CONTEXT (conversation so far — verbatim recent messages follow):\n'+
+      (s.arc       ? '— Arc: '+s.arc+'\n'              : '')+
+      (s.heat      ? '— Heat reached: '+s.heat+'\n'    : '')+
+      (s.things_said ? '— Things specifically said: '+s.things_said+'\n' : '')+
+      (s.emotional_state ? '— Emotional state: '+s.emotional_state+'\n' : '')+
+      (s.last_intimate ? '— Last intimate moment: '+s.last_intimate+'\n' : '')+
+      (s.unfinished ? '— What\'s unfinished: '+s.unfinished : '');
+    fullSys += '\n\n'+sumBlock.trim();
+  }
+
+  // Layer 3: long-term memory
+  if(partner.longTermMemory&&partner.longTermMemory.length){
+    fullSys += '\n\nWHAT SHE KNOWS ABOUT HIM NOW (learned through conversation):\n'+
+      partner.longTermMemory.map(function(f){return '— '+f;}).join('\n');
+  }
+
+  // Layer 1: verbatim recent buffer
+  var buffer = realMsgs.slice(-VERBATIM_BUFFER);
+  var out=[{role:'system',content:fullSys}];
+  buffer.forEach(function(m){out.push({role:m.role,content:m.content});});
   return out;
+}
+
+// ── ASYNC SUMMARISER — fires silently after each response when above threshold ──
+function maybeRunSummariser(orKey){
+  var realMsgs = getRealMsgs();
+  if(realMsgs.length < HIST_THRESHOLD) return;
+  // Only re-run if at least 5 new messages since last summary
+  if(realMsgs.length <= (partner.summaryUpToIdx||0) + 4) return;
+
+  var toSummarise = realMsgs.slice(0, realMsgs.length - VERBATIM_BUFFER);
+  if(!toSummarise.length) return;
+  var name = partner.name||'her';
+  var convText = toSummarise.map(function(m){return (m.role==='user'?'HIM: ':'HER: ')+m.content;}).join('\n');
+  var newIdx = realMsgs.length - VERBATIM_BUFFER;
+
+  // ── Session summary call ──
+  var summaryPrompt = 'Summarise this intimate conversation. Output ONLY valid JSON, no markdown, no extra text.\n\n'+
+    'Required format:\n{"arc":"...","heat":"...","things_said":"...","emotional_state":"...","last_intimate":"...","unfinished":"..."}\n\n'+
+    'arc: one sentence — where the conversation started and where it sits now\n'+
+    'heat: none / building / suggestive / explicit / peak\n'+
+    'things_said: specific words, promises, references made that matter — comma separated\n'+
+    'emotional_state: his mood and her mood right now in one sentence\n'+
+    'last_intimate: the last physical or intimate moment described, briefly\n'+
+    'unfinished: anything left hanging, unresolved, or mid-scene\n\n'+
+    'CONVERSATION:\n'+convText;
+
+  streamFetch(orKey,'openai/gpt-4o-mini',
+    [{role:'user',content:summaryPrompt}],
+    {maxTokens:350,
+      onDone:function(raw){
+        try{
+          var clean=raw.replace(/```json|```/g,'').trim();
+          var parsed=JSON.parse(clean);
+          partner.sessionSummary=parsed;
+          partner.summaryUpToIdx=newIdx;
+          save();
+        }catch(e){}
+      },
+      onError:function(){}  // silent — never interrupts UX
+    }
+  );
+
+  // ── Long-term memory extraction call ──
+  var memPrompt = 'From this conversation, extract durable facts about him that should be remembered long-term — preferences revealed, things he said about himself, how he responds to her, what he wants.\n\n'+
+    'Output ONLY a JSON array of short strings. Max 8 items. No markdown.\n'+
+    'Example: ["prefers direct communication","mentioned he travels for work","responds strongly when she is difficult"]\n\n'+
+    'CONVERSATION:\n'+convText;
+
+  streamFetch(orKey,'openai/gpt-4o-mini',
+    [{role:'user',content:memPrompt}],
+    {maxTokens:200,
+      onDone:function(raw){
+        try{
+          var clean=raw.replace(/```json|```/g,'').trim();
+          var arr=JSON.parse(clean);
+          if(Array.isArray(arr)){
+            var existing=partner.longTermMemory||[];
+            arr.forEach(function(item){
+              var item2=item.trim();
+              if(item2&&existing.indexOf(item2)===-1)existing.push(item2);
+            });
+            partner.longTermMemory=existing.slice(-12); // cap at 12 facts
+            save();
+          }
+        }catch(e){}
+      },
+      onError:function(){}
+    }
+  );
 }
 function sendMessage(){
   if(busy)return;
@@ -1067,7 +1255,10 @@ function sendMessage(){
       }
       // Fire a Venice call for each [PHOTO: ...] tag the AI included
       parsed.photos.forEach(function(desc){firePhoto(desc);});
-      save();busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+      save();
+      // Async summariser — fires silently in background when history is long
+      maybeRunSummariser(orKey);
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
     },
     onError:function(err){removeEl(typId);if(stream)stream.remove();addError(err?err.message:'Error');busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;}
   });
@@ -1128,10 +1319,21 @@ function updateHeader(){
   $('hdrStatus').textContent=partner.name&&partner.name!=='Your Companion'?({explicit:'In a mood 🔥',suggestive:'Feeling close…',flirty:'Feeling playful'}[heat]||''):'Tap to set up';
   var a=$('hdrAvatar');if(partner.imageB64){a.innerHTML='<img src="data:image/jpeg;base64,'+partner.imageB64+'" alt="">';}else a.textContent='🦜';
 }
-function openSettings(){loadKeys();updatePinUi();$('settingsOverlay').classList.add('open');}
+function openSettings(){
+  loadKeys();updatePinUi();
+  if($('versionLabel'))$('versionLabel').textContent=APP_VERSION;
+  $('settingsOverlay').classList.add('open');
+}
 function closeSettings(){$('settingsOverlay').classList.remove('open');}
 function saveSettings(){saveKeys();closeSettings();toast('Settings saved ✓');}
-function clearChat(){if(!confirm('Clear all chat history?'))return;msgs=[];save();renderHistory();toast('Chat cleared');}
+function clearChat(){
+  if(!confirm('Clear all chat history?'))return;
+  msgs=[];
+  partner.sessionSummary=null;
+  partner.longTermMemory=[];
+  partner.summaryUpToIdx=0;
+  save();renderHistory();toast('Chat cleared');
+}
 function viewPortrait(){if(!partner.imageB64)return;$('imgViewerImg').src='data:image/jpeg;base64,'+partner.imageB64;$('imgViewer').classList.add('open');}
 function closeImgViewer(){$('imgViewer').classList.remove('open');}
 function autoGrow(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
