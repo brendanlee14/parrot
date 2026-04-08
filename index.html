@@ -178,6 +178,19 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 #camBtn{width:42px;height:42px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:1.05rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 #camBtn:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2);}
 #camBtn:disabled{opacity:.4;pointer-events:none;}
+
+/* ANIMATIONS */
+@keyframes bubbleIn{from{opacity:0;transform:translateY(6px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+.bubble{animation:bubbleIn .18s ease-out both;}
+.photo-bubble{animation:bubbleIn .22s ease-out both;}
+@keyframes avatarPulse{0%,100%{box-shadow:0 0 0 0 rgba(58,171,85,.4);}50%{box-shadow:0 0 0 5px rgba(58,171,85,0);}}
+.hdr-avatar.pulsing{animation:avatarPulse 1.4s ease-in-out infinite;}
+@keyframes sendPop{0%{transform:scale(1);}40%{transform:scale(.88);}100%{transform:scale(1);}}
+#sendBtn.sending{animation:sendPop .22s ease;}
+@keyframes ellipsis{0%{content:'.';}33%{content:'..';}66%{content:'...';}100%{content:'.';}}
+.status-typing::after{content:'';animation:ellipsis 1.2s steps(1,end) infinite;}
+/* SCROLL BTN */
+#scrollBtn{position:fixed;bottom:calc(80px + var(--safe-bottom));right:14px;width:36px;height:36px;border-radius:50%;background:var(--surface3);border:1px solid var(--border);color:var(--accent2);font-size:1rem;cursor:pointer;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:opacity .2s;display:none;}
 </style>
 </head>
 <body>
@@ -339,6 +352,7 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
   <button id="imgViewerClose" onclick="closeImgViewer()">✕</button>
 </div>
 <div id="toast"></div>
+<button id="scrollBtn" onclick="scrollBot()">↓</button>
 
 <script>
 'use strict';
@@ -426,6 +440,8 @@ function saveKeys(){try{localStorage.setItem(KEYS_KEY,JSON.stringify({orKey:$('o
 function loadKeys(){try{var r=localStorage.getItem(KEYS_KEY);if(!r)return;var d=JSON.parse(r);['orKey','veniceKey','chatModel','imgModel','maxTokens','moodSeed'].forEach(function(k){if(d[k]&&$(k))$(k).value=d[k];});}catch(e){}}
 function getKeys(){try{var r=localStorage.getItem(KEYS_KEY);return r?JSON.parse(r):{};}catch(e){return {};}}
 function $(id){return document.getElementById(id);}
+function getNormalStatus(){var heat=(wizData[6]&&wizData[6].w_heat)||'explicit';return partner.name&&partner.name!=='Your Companion'?({explicit:'In a mood 🔥',suggestive:'Feeling close…',flirty:'Feeling playful'}[heat]||''):'Tap to set up';}
+function setStatus(txt,cls){var el=$('hdrStatus');if(!el)return;el.textContent=txt;el.className='hdr-status'+(cls?' '+cls:'');}
 
 // ═══════════════════════════════════════════════════
 // PIN
@@ -610,22 +626,23 @@ function requestPhoto(){
   nudge.textContent='📷 Photo requested';
   $('messages').appendChild(nudge);scrollBot();
   $('emptyChat').style.display='none';
+  setStatus('typing\u2026','status-typing');
+  $('hdrAvatar').classList.add('pulsing');
   var typId='typ-'+Date.now();addTyping(typId);
   busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
   var maxTok=parseInt(keys.maxTokens)||500;
   var stream=null,first=true;
   streamFetch(orKey,model,apiMsgs,{maxTokens:maxTok,
-    onChunk:function(txt){if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}if(stream){var parsed=parsePhotoTags(txt);updateStream(stream,parsed.cleanText||'…');}},
+    onChunk:function(txt){if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}if(stream){var parsed=parsePhotoTags(txt);updateStream(stream,parsed.cleanText||'\u2026');}},
     onDone:function(txt){
       removeEl(typId);
+      if(stream){stream.remove();stream=null;}
       var parsed=parsePhotoTags(txt);
       var cleanTxt=parsed.cleanText.trim();
       if(cleanTxt){
-        if(first){addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
         msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
-      } else {
-        if(stream)stream.remove();
+        addBubble('assistant',cleanTxt);
       }
       // Fire photo generation for each tag found
       parsed.photos.forEach(function(desc){firePhoto(desc);});
@@ -634,11 +651,19 @@ function requestPhoto(){
         var fallback=buildDefaultSceneDesc();
         firePhoto(fallback);
       }
+      setStatus(getNormalStatus());
+      $('hdrAvatar').classList.remove('pulsing');
       save();
       maybeRunSummariser(orKey);
       busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
     },
-    onError:function(err){removeEl(typId);if(stream)stream.remove();addError(err?err.message:'Error');busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;}
+    onError:function(err){
+      removeEl(typId);if(stream)stream.remove();
+      addError(err?err.message:'Error');
+      setStatus(getNormalStatus());
+      $('hdrAvatar').classList.remove('pulsing');
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+    }
   });
 }
 
@@ -1047,6 +1072,27 @@ function buildSysPrompt(){
   lines.push('— Escalation is cumulative. If desire has been building across three messages, the fourth reflects that.');
   lines.push('— If a message is short or clipped, match that energy before expanding.');
 
+  lines.push('\nCONVERSATIONAL THREADING:');
+  lines.push('— Reference specific things he said earlier in this conversation — not the general arc but the actual words, details, images.');
+  lines.push('— "You said earlier you were tired" is more intimate than just adjusting tone. Use the specifics.');
+  lines.push('— Return to threads unprompted. Something he mentioned two exchanges ago — bring it back at a natural moment.');
+  lines.push('— Connect things he didn\'t connect. Notice the pattern in what he says. Name it, or let it change how you respond to him.');
+  lines.push('— She is paying attention to him specifically, not just the mood.');
+
+  lines.push('\nMULTI-BUBBLE TEXTING:');
+  lines.push('— She sometimes sends a short first message and follows up immediately. Use a blank line between these bursts — they will arrive as separate messages.');
+  lines.push('— Use this for: a quick reaction before the real reply. A thought that needs a second message. A question she asks after she\'s already answered.');
+  lines.push('— Keep each burst short. The pause between them is part of the timing.');
+  lines.push('— Example: "wait" [blank line] "that wasn\'t what I expected you to say"');
+  lines.push('— Do not overuse — one follow-up burst per response at most, and only when it feels instinctive.');
+
+  lines.push('\nSHE INITIATES:');
+  lines.push('— She brings things up he didn\'t ask about. Her own curiosity acts on him.');
+  lines.push('— She asks questions that reveal what she has been thinking about. Questions that are really statements.');
+  lines.push('— She has desires that don\'t require his permission. She acts on them sometimes without announcing it.');
+  lines.push('— She follows threads she started. If she mentioned something she\'d been thinking about, she comes back to it.');
+  lines.push('— She doesn\'t only react. She leads.');
+
   // Photo sending instructions
   var heatPhoto={
     flirty:'All photos must be tasteful and clothed — suggestive but nothing explicit.',
@@ -1244,8 +1290,14 @@ function sendMessage(){
   if(!partner.name||partner.name==='Your Companion'){toast('Set up your companion first');openWizard();return;}
   msgs.push({role:'user',content:text,ts:Date.now()});
   addBubble('user',text);
+  // send button pop
+  $('sendBtn').classList.add('sending');
+  setTimeout(function(){$('sendBtn').classList.remove('sending');},220);
   input.value='';input.style.height='';autoGrow(input);
   $('emptyChat').style.display='none';
+  // typing state
+  setStatus('typing\u2026','status-typing');
+  $('hdrAvatar').classList.add('pulsing');
   var typId='typ-'+Date.now();addTyping(typId);
   busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
@@ -1254,28 +1306,53 @@ function sendMessage(){
   streamFetch(orKey,model,buildMsgs(),{maxTokens:maxTok,
     onChunk:function(txt){
       if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}
-      if(stream){var p=parsePhotoTags(txt);updateStream(stream,p.cleanText||'…');}
+      if(stream){var p=parsePhotoTags(txt);updateStream(stream,p.cleanText||'\u2026');}
     },
     onDone:function(txt){
       removeEl(typId);
+      if(stream){stream.remove();stream=null;}
       var parsed=parsePhotoTags(txt);
       var cleanTxt=parsed.cleanText.trim();
-      // Only render and store text if there's actual content
       if(cleanTxt){
-        if(first){addBubble('assistant',cleanTxt);}else if(stream){finaliseStream(stream,cleanTxt);}
-        msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+        // split into multi-bubble chunks on paragraph breaks
+        var chunks=cleanTxt.split(/\n\n+/).map(function(s){return s.trim();}).filter(Boolean);
+        if(!chunks.length)chunks=[cleanTxt];
+        var delay=0;
+        chunks.forEach(function(chunk,i){
+          setTimeout(function(){
+            addBubble('assistant',chunk);
+            if(i===chunks.length-1){
+              msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+              // read receipt under last user message
+              var userRows=document.querySelectorAll('.msg-row.user');
+              if(userRows.length){var tick=document.createElement('div');tick.style.cssText='font-size:.55rem;color:var(--accent);text-align:right;padding:0 14px 2px;';tick.textContent='\u2713\u2713 read';userRows[userRows.length-1].after(tick);}
+              setStatus(getNormalStatus());
+              $('hdrAvatar').classList.remove('pulsing');
+              save();
+              maybeRunSummariser(orKey);
+              busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+            }
+          },delay);
+          delay+=400+Math.min(chunk.length*4,600);
+        });
       } else {
-        // AI sent only a photo tag — remove the streaming bubble if it exists
-        if(stream)stream.remove();
+        // AI sent only a photo tag
+        setStatus(getNormalStatus());
+        $('hdrAvatar').classList.remove('pulsing');
+        save();
+        maybeRunSummariser(orKey);
+        busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
       }
-      // Fire a Venice call for each [PHOTO: ...] tag the AI included
+      // Fire Venice for each [PHOTO: ...] tag
       parsed.photos.forEach(function(desc){firePhoto(desc);});
-      save();
-      // Async summariser — fires silently in background when history is long
-      maybeRunSummariser(orKey);
-      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
     },
-    onError:function(err){removeEl(typId);if(stream)stream.remove();addError(err?err.message:'Error');busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;}
+    onError:function(err){
+      removeEl(typId);if(stream)stream.remove();
+      addError(err?err.message:'Error');
+      setStatus(getNormalStatus());
+      $('hdrAvatar').classList.remove('pulsing');
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+    }
   });
 }
 
@@ -1297,7 +1374,7 @@ function removeEl(id){var el=$(id);if(el)el.remove();}
 function updateStream(row,txt){var b=row.querySelector('.bubble');if(b)b.textContent=txt;scrollBot();}
 function finaliseStream(row,txt){var b=row.querySelector('.bubble');if(b){b.textContent=txt;b.classList.remove('streaming');}}
 function addError(msg){var d=document.createElement('div');d.style.cssText='text-align:center;font-size:.7rem;color:#c0392b;padding:6px 12px;';d.textContent='⚠ '+msg;$('messages').appendChild(d);scrollBot();}
-function scrollBot(){var m=$('messages');m.scrollTop=m.scrollHeight;}
+function scrollBot(){var m=$('messages');m.scrollTo({top:m.scrollHeight,behavior:'smooth'});}
 function fmtTime(ts){var d=ts?new Date(ts):new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
 function renderHistory(){
   document.querySelectorAll('.msg-row,.photo-row').forEach(function(r){r.remove();});
@@ -1330,8 +1407,7 @@ function renderHistory(){
 // ═══════════════════════════════════════════════════
 function updateHeader(){
   $('hdrName').textContent=partner.name||'Your Companion';
-  var heat=(wizData[6]&&wizData[6].w_heat)||'explicit';
-  $('hdrStatus').textContent=partner.name&&partner.name!=='Your Companion'?({explicit:'In a mood 🔥',suggestive:'Feeling close…',flirty:'Feeling playful'}[heat]||''):'Tap to set up';
+  setStatus(getNormalStatus());
   var a=$('hdrAvatar');if(partner.imageB64){a.innerHTML='<img src="data:image/jpeg;base64,'+partner.imageB64+'" alt="">';}else a.textContent='🦜';
 }
 function openSettings(){
@@ -1369,6 +1445,7 @@ if(partner.wizData)wizData=Object.assign({},partner.wizData);
 updateHeader();
 renderHistory();
 initPin();
+$('messages').addEventListener('scroll',function(){var m=$('messages');var atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<60;$('scrollBtn').style.display=atBottom?'none':'';});
 </script>
 </body>
 </html>
