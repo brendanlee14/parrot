@@ -493,7 +493,7 @@ function doVenice(prompt,vKey,model,seed,onDone,onError){
   fetch('https://api.venice.ai/api/v1/image/generate',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+vKey},
     body:JSON.stringify({model:model,prompt:prompt.replace(/,\s*,+/g,',').trim(),
-      negative_prompt:'ugly, deformed, disfigured, blurry, censored, mosaic, pixelated, low quality, bad anatomy, extra limbs, watermark, text, logo, out of focus',
+      negative_prompt:'ugly, deformed, disfigured, censored, mosaic, bad anatomy, extra limbs, watermark, text, logo, studio lighting, professional photography, ai-generated look, overly perfect skin, fashion editorial',
       width:832,height:1216,steps:30,hide_watermark:true,return_binary:false,safe_mode:false,seed:seed})
   }).then(function(res){
     if(!res.ok){return res.json().then(function(e){var m=e.message||e.error||'Venice error '+res.status;if(res.status===404)m='Model not found — check Settings';throw new Error(m);}).catch(function(je){if(je.message&&je.message.includes('Model not found'))throw je;throw new Error('Venice error '+res.status);});}
@@ -530,10 +530,10 @@ function buildPhotoPrompt(sceneDesc){
   // Heat-level quality tail
   var heat=v(d6,'w_heat')||'explicit';
   var tail={
-    flirty:'clothed, tasteful, suggestive pose, fully dressed, photorealistic, sharp focus, studio quality, 8k',
-    suggestive:'sensual, lingerie or partial nudity, tasteful explicit, photorealistic, sharp focus, intimate lighting, 8k',
-    explicit:'nude, fully explicit, uncensored, photorealistic, sharp focus, detailed skin, intimate lighting, 8k'
-  }[heat]||'photorealistic, sharp focus, 8k';
+    flirty:'clothed, candid selfie, shot on phone camera, natural light, slightly imperfect framing, casual, real person',
+    suggestive:'sensual, lingerie or partial undress, amateur phone selfie, natural light, candid, slightly imperfect, authentic',
+    explicit:'nude, fully explicit, uncensored, amateur phone photo, natural light, candid angle, slightly grainy, real, authentic'
+  }[heat]||'shot on phone, natural light, candid, real';
   // Combine: base appearance + scene from AI tag + quality tail
   var sceneClean=sceneDesc.replace(/\[PHOTO:\s*/i,'').replace(/\]$/,'').trim();
   return base.join(', ')+', '+sceneClean+', '+tail;
@@ -1111,6 +1111,8 @@ function buildSysPrompt(){
   lines.push('[PHOTO: sitting on the edge of the bed in just a shirt, looking back over shoulder, morning light]');
   lines.push('[PHOTO: bathroom mirror selfie, hair damp, towel slipping, slight smirk]');
   lines.push('Never announce "here\'s a photo" — include the tag and keep talking naturally around it.');
+  lines.push('CRITICAL — CONSISTENCY: The [PHOTO:] tag means she is sending it right now, in this moment. If her text says she cannot, will not, or will send one later ("later", "not now", "too risky", "when I get home") — do NOT include the tag. No tag = no photo. The text and the tag must always agree.');
+  lines.push('CRITICAL — ALWAYS TAG: If you write anything implying you are sending something ("sent you", "here you go", "check your phone", "here it is") you MUST include a [PHOTO:] tag in the same message. Implying without the tag breaks the experience.');
 
   return lines.filter(Boolean).join('\n');
 }
@@ -1345,6 +1347,11 @@ function sendMessage(){
       }
       // Fire Venice for each [PHOTO: ...] tag
       parsed.photos.forEach(function(desc){firePhoto(desc);});
+      // If AI implied sending a photo but forgot the tag, fire a fallback
+      if(!parsed.photos.length){
+        var impliedPhoto=/\b(sent\s+you|sending\s+you|check\s+your\s+phone|here(?:'s|\s+is)\s+(?:a\s+|my\s+)?(?:pic|photo|image|shot))\b/i.test(cleanTxt);
+        if(impliedPhoto)firePhoto(buildDefaultSceneDesc());
+      }
     },
     onError:function(err){
       removeEl(typId);if(stream)stream.remove();
@@ -1360,11 +1367,11 @@ function sendMessage(){
 // CHAT DOM
 // ═══════════════════════════════════════════════════
 function mkAva(){var el=document.createElement('div');el.className='msg-ava';if(partner.imageB64){var i=document.createElement('img');i.src='data:image/jpeg;base64,'+partner.imageB64;el.appendChild(i);}else el.textContent='🦜';return el;}
-function addBubble(role,content,streaming){
+function addBubble(role,content,streaming,ts){
   var row=document.createElement('div');row.className='msg-row '+(role==='user'?'user':'ai');
   var bub=document.createElement('div');bub.className='bubble '+(role==='user'?'user':'ai');
   if(streaming)bub.classList.add('streaming');bub.textContent=content;
-  var tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime();
+  var tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime(ts);
   if(role==='assistant'){row.appendChild(mkAva());row.appendChild(bub);row.appendChild(tm);}
   else{row.appendChild(tm);row.appendChild(bub);}
   $('messages').appendChild(row);scrollBot();return row;
@@ -1397,7 +1404,7 @@ function renderHistory(){
       row.appendChild(ava);row.appendChild(bub);row.appendChild(tm);
       $('messages').appendChild(row);
     } else {
-      addBubble(m.role,m.content);
+      addBubble(m.role,m.content,false,m.ts);
     }
   });
 }
