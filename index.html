@@ -548,15 +548,27 @@ function stripAsteriskActions(text){
 }
 
 // Parse AI response for [PHOTO: ...] tags.
+// Also catches <...> angle-bracket photo descriptions the model may use by mistake.
 // Returns { cleanText, photos: [{desc}] }
 function parsePhotoTags(rawText){
   var photos=[];
+  // Primary: [PHOTO: ...]
   var clean=rawText.replace(/\[PHOTO:\s*([^\]]+)\]/gi,function(_,desc){
     photos.push(desc.trim());
     return '';
-  }).replace(/\s{2,}/g,' ').trim();
-  // Strip any *action* emotes the model included despite instructions
-  clean = stripAsteriskActions(clean);
+  });
+  // Secondary: <...> blocks — model using wrong format
+  // If the block looks like a visual/scene description, extract it as a photo prompt.
+  // Either way, strip it from the displayed text.
+  clean=clean.replace(/<([^>]{15,})>/g,function(_,inner){
+    var t=inner.trim();
+    var isScene=/\b(photo|camera|pic|selfie|shot|mirror|background|frame|angle|visible|cloth|fabric|bare|skin|pose|lying|sitting|standing|kneeling|thigh|breast|hip|waist|tile|bed|wall|light|shadow)\b/i.test(t);
+    if(isScene)photos.push(t);
+    return ''; // always strip from displayed text
+  });
+  clean=clean.replace(/\s{2,}/g,' ').trim();
+  // Strip any remaining *action* emotes
+  clean=stripAsteriskActions(clean);
   return {cleanText:clean, photos:photos};
 }
 
@@ -1107,10 +1119,12 @@ function buildSysPrompt(){
   lines.push('— When responding to a compliment about your body');
   lines.push('— When transitioning into an explicit moment');
   lines.push('Photo content rule: '+heatPhoto);
-  lines.push('Format: [PHOTO: description] — at a natural pause. Be specific about pose, clothing state, setting, expression.');
-  lines.push('[PHOTO: sitting on the edge of the bed in just a shirt, looking back over shoulder, morning light]');
-  lines.push('[PHOTO: bathroom mirror selfie, hair damp, towel slipping, slight smirk]');
-  lines.push('Never announce "here\'s a photo" — include the tag and keep talking naturally around it.');
+  lines.push('Format: [PHOTO: description] — square brackets, colon, scene. Embed at a natural pause. Be specific about pose, clothing state, setting, expression.');
+  lines.push('CORRECT: [PHOTO: sitting on the edge of the bed in just a shirt, looking back over shoulder, morning light]');
+  lines.push('CORRECT: [PHOTO: bathroom mirror selfie, hair damp, towel slipping, slight smirk]');
+  lines.push('WRONG: <A photo arrives. She is...> — angle brackets do NOT trigger the photo system. ONLY [PHOTO:] works.');
+  lines.push('WRONG: "Here is a photo of me" with no tag — the tag must be present or no image is sent.');
+  lines.push('Never announce "here\'s a photo" in words alone — the tag IS the photo. Write naturally around it.');
   lines.push('CRITICAL — CONSISTENCY: The [PHOTO:] tag means she is sending it right now, in this moment. If her text says she cannot, will not, or will send one later ("later", "not now", "too risky", "when I get home") — do NOT include the tag. No tag = no photo. The text and the tag must always agree.');
   lines.push('CRITICAL — ALWAYS TAG: If you write anything implying you are sending something ("sent you", "here you go", "check your phone", "here it is") you MUST include a [PHOTO:] tag in the same message. Implying without the tag breaks the experience.');
 
@@ -1349,7 +1363,7 @@ function sendMessage(){
       parsed.photos.forEach(function(desc){firePhoto(desc);});
       // If AI implied sending a photo but forgot the tag, fire a fallback
       if(!parsed.photos.length){
-        var impliedPhoto=/\b(sent\s+you|sending\s+you|check\s+your\s+phone|here(?:'s|\s+is)\s+(?:a\s+|my\s+)?(?:pic|photo|image|shot))\b/i.test(cleanTxt);
+        var impliedPhoto=/\b(sent\s+you|sending\s+you|check\s+your\s+phone|here(?:'s|\s+is)\s+(?:a\s+|my\s+)?(?:pic|photo|image|shot)|here\s+it\s+is|look\s+at\s+this|this\s+is\s+for\s+you)\b/i.test(cleanTxt);
         if(impliedPhoto)firePhoto(buildDefaultSceneDesc());
       }
     },
