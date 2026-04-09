@@ -225,6 +225,7 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 <div id="app">
   <div class="chat-header">
     <button class="hdr-btn" onclick="openSettings()">⚙</button>
+    <button class="hdr-btn" id="copyBtn" onclick="openCopySheet()" title="Copy recent messages">📋</button>
     <div class="hdr-partner" onclick="openWizard()">
       <div class="hdr-avatar" id="hdrAvatar">🦜</div>
       <div>
@@ -343,6 +344,21 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
     <div class="btn-row" style="margin-top:4px;"><button class="btn-g" onclick="openWizard();closeSettings();" style="flex:1;">✦ Edit Companion</button></div>
     <div class="btn-row"><button class="btn-p" onclick="saveSettings()">Save Settings</button></div>
     <div style="text-align:center;padding:16px 16px 4px;font-size:.62rem;color:var(--muted);letter-spacing:.1em;">PARROT v<span id="versionLabel"></span></div>
+  </div>
+</div>
+
+<!-- COPY SHEET -->
+<div class="sheet-overlay" id="copyOverlay" onclick="overlayClick(event,'copyOverlay')">
+  <div class="sheet" style="padding-bottom:calc(20px + var(--safe-bottom));">
+    <div class="sheet-handle"></div>
+    <div class="sheet-hdr"><div class="sheet-title">Copy Messages</div><button class="sheet-close" onclick="closeCopySheet()">✕</button></div>
+    <div style="padding:14px 16px 4px;font-size:.75rem;color:var(--muted);line-height:1.6;">Copy a transcript of recent messages to your clipboard — paste into any chat to share context.</div>
+    <div class="btn-row" style="flex-direction:column;gap:8px;padding-top:14px;">
+      <button class="btn-g" onclick="copyTranscript(5)"  style="flex:none;text-align:left;padding:13px 16px;">Last 5 messages</button>
+      <button class="btn-g" onclick="copyTranscript(10)" style="flex:none;text-align:left;padding:13px 16px;">Last 10 messages</button>
+      <button class="btn-g" onclick="copyTranscript(20)" style="flex:none;text-align:left;padding:13px 16px;">Last 20 messages</button>
+      <button class="btn-g" onclick="copyTranscript(0)"  style="flex:none;text-align:left;padding:13px 16px;">Full conversation</button>
+    </div>
   </div>
 </div>
 
@@ -1438,6 +1454,39 @@ function openSettings(){
 }
 function closeSettings(){$('settingsOverlay').classList.remove('open');}
 function saveSettings(){saveKeys();closeSettings();toast('Settings saved ✓');}
+function openCopySheet(){$('copyOverlay').classList.add('open');}
+function closeCopySheet(){$('copyOverlay').classList.remove('open');}
+function copyTranscript(n){
+  var textMsgs=msgs.filter(function(m){return m.role==='user'||m.role==='assistant';});
+  var slice=n>0?textMsgs.slice(-n):textMsgs;
+  if(!slice.length){toast('No messages to copy');return;}
+  var her=partner.name||'Her';
+  var now=new Date();
+  var dateStr=now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  var header='— '+her+' — '+dateStr+' —\n\n';
+  var body=slice.map(function(m){
+    var who=m.role==='user'?'You':her;
+    var time=fmtTime(m.ts);
+    return who+' ['+time+']: '+m.content.trim();
+  }).join('\n\n');
+  var full=header+body;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(full).then(function(){
+      closeCopySheet();
+      toast('✓ '+(slice.length)+' messages copied');
+    }).catch(function(){fallbackCopy(full);});
+  } else {
+    fallbackCopy(full);
+  }
+}
+function fallbackCopy(text){
+  var ta=document.createElement('textarea');
+  ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0;';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');closeCopySheet();toast('✓ Copied');}
+  catch(e){toast('Copy failed — try a different browser');}
+  document.body.removeChild(ta);
+}
 function clearChat(){
   if(!confirm('Clear all chat history?'))return;
   msgs=[];
