@@ -177,6 +177,34 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 /* Camera button */
 #camBtn{width:42px;height:42px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:1.05rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
 #camBtn:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2);}
+
+/* CONTACTS SCREEN */
+#contactsScreen{display:none;position:fixed;inset:0;background:var(--bg);z-index:500;flex-direction:column;overflow:hidden;}
+#contactsScreen.open{display:flex;}
+.contacts-hdr{height:calc(62px + var(--safe-top));padding-top:var(--safe-top);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:var(--safe-top) 12px 0;gap:6px;flex-shrink:0;}
+.contacts-hdr-title{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-style:italic;font-weight:300;color:var(--accent2);flex:1;padding-left:4px;padding-bottom:0;line-height:62px;}
+.contacts-new-btn{width:40px;height:40px;border-radius:50%;border:none;background:var(--accent);color:#0b1a0e;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;margin-bottom:0;align-self:center;margin-top:var(--safe-top);}
+.contacts-new-btn:active{background:var(--accent2);}
+.contacts-settings-btn{width:40px;height:40px;border-radius:50%;border:none;background:none;color:var(--muted);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center;margin-top:var(--safe-top);}
+.contacts-settings-btn:active{color:var(--accent2);}
+.contact-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.contact-row{display:flex;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;position:relative;}
+.contact-row:active{background:var(--surface2);}
+.contact-row-ava{width:50px;height:50px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+.contact-row-ava img{width:100%;height:100%;object-fit:cover;}
+.contact-row-body{flex:1;min-width:0;}
+.contact-row-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:3px;}
+.contact-row-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-style:italic;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.contact-row-time{font-size:.6rem;color:var(--muted);flex-shrink:0;letter-spacing:.03em;}
+.contact-row-preview{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;}
+.contact-row-preview.you{color:#3a6b40;}
+.contacts-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted);text-align:center;padding:40px;}
+.contacts-empty img{width:72px;height:72px;border-radius:18px;opacity:.25;}
+.contacts-empty p{font-size:.82rem;line-height:1.7;}
+.contacts-empty-hint{font-size:.68rem;color:#3a3850;letter-spacing:.08em;text-transform:uppercase;}
+/* back button in chat header */
+#backBtn{display:none;}
+#backBtn.visible{display:flex;}
 #camBtn:disabled{opacity:.4;pointer-events:none;}
 
 /* ANIMATIONS */
@@ -221,9 +249,20 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
   <div class="pin-error-msg" id="pinErrorMsg"></div>
 </div>
 
+<!-- CONTACTS SCREEN -->
+<div id="contactsScreen">
+  <div class="contacts-hdr">
+    <div class="contacts-hdr-title">Parrot</div>
+    <button class="contacts-settings-btn" onclick="openSettings()">⚙</button>
+    <button class="contacts-new-btn" onclick="newContact()" title="New companion">+</button>
+  </div>
+  <div class="contact-list" id="contactList"></div>
+</div>
+
 <!-- APP -->
 <div id="app">
   <div class="chat-header">
+    <button class="hdr-btn" id="backBtn" onclick="goToContacts()">‹</button>
     <button class="hdr-btn" onclick="openSettings()">⚙</button>
     <button class="hdr-btn" id="copyBtn" onclick="openCopySheet()" title="Copy recent messages">📋</button>
     <div class="hdr-partner" onclick="openWizard()">
@@ -444,14 +483,71 @@ var SEX_BEHAVIOURS = ['Vocalises her own actions','Controls pace deliberately','
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
-var APP_VERSION='1.2.0';
-var STORE_KEY='parrot_v1', KEYS_KEY='parrot_keys_v1', PIN_KEY='parrot_pin_v1';
+var APP_VERSION='1.3.0';
+var STORE_KEY='parrot_v2', STORE_KEY_V1='parrot_v1', KEYS_KEY='parrot_keys_v1', PIN_KEY='parrot_pin_v1';
 var HIST=30, HIST_THRESHOLD=25, VERBATIM_BUFFER=10;
+
+// Working variables — always point to the active contact's data
 var partner={name:'',systemPrompt:'',appearance:'',imageB64:null,wizData:{},sessionSummary:null,longTermMemory:[],summaryUpToIdx:0};
 var msgs=[], busy=false, lastSeed=null;
 
-function save(){try{localStorage.setItem(STORE_KEY,JSON.stringify({partner,msgs}));}catch(e){toast('⚠ Storage full');}}
-function load(){try{var r=localStorage.getItem(STORE_KEY);if(!r)return;var d=JSON.parse(r);if(d.partner)partner=Object.assign(partner,d.partner);if(d.msgs)msgs=d.msgs;}catch(e){}}
+// Contacts store
+var contacts=[];      // [{id, partner, msgs}]
+var activeId=null;    // id of the contact currently open in chat
+var isNewContact=false; // true while wizard is creating a brand-new contact
+
+function mkId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function blankPartner(){return {name:'',systemPrompt:'',appearance:'',imageB64:null,wizData:{},sessionSummary:null,longTermMemory:[],summaryUpToIdx:0};}
+
+// Flush working partner/msgs into the active contacts slot
+function saveContact(){
+  if(!activeId)return;
+  var c=contacts.find(function(x){return x.id===activeId;});
+  if(c){c.partner=JSON.parse(JSON.stringify(partner));c.msgs=JSON.parse(JSON.stringify(msgs));}
+}
+
+// Copy a contact's data into the working partner/msgs
+function loadContact(id){
+  var c=contacts.find(function(x){return x.id===id;});
+  if(!c)return;
+  activeId=id;
+  partner=JSON.parse(JSON.stringify(c.partner));
+  msgs=JSON.parse(JSON.stringify(c.msgs));
+  if(partner.wizData)wizData=Object.assign({},partner.wizData);
+}
+
+function save(){
+  saveContact();
+  try{localStorage.setItem(STORE_KEY,JSON.stringify({v:2,contacts:contacts,activeId:activeId}));}catch(e){toast('⚠ Storage full');}
+}
+
+function load(){
+  try{
+    // Try v2 first
+    var r2=localStorage.getItem(STORE_KEY);
+    if(r2){
+      var d=JSON.parse(r2);
+      if(d.v===2&&Array.isArray(d.contacts)){
+        contacts=d.contacts;
+        activeId=d.activeId||null;
+        // Validate activeId still exists
+        if(activeId&&!contacts.find(function(x){return x.id===activeId;}))activeId=null;
+        if(!activeId&&contacts.length)activeId=contacts[0].id;
+        if(activeId)loadContact(activeId);
+        return;
+      }
+    }
+    // Migrate from v1
+    var r1=localStorage.getItem(STORE_KEY_V1);
+    if(r1){
+      var d1=JSON.parse(r1);
+      var c={id:mkId(),partner:Object.assign(blankPartner(),d1.partner||{}),msgs:d1.msgs||[]};
+      contacts=[c];
+      activeId=c.id;
+      loadContact(activeId);
+    }
+  }catch(e){}
+}
 function saveKeys(){try{localStorage.setItem(KEYS_KEY,JSON.stringify({orKey:$('orKey').value,veniceKey:$('veniceKey').value,chatModel:$('chatModel').value,imgModel:$('imgModel').value,maxTokens:$('maxTokens').value,moodSeed:$('moodSeed').value}));}catch(e){}}
 function loadKeys(){try{var r=localStorage.getItem(KEYS_KEY);if(!r)return;var d=JSON.parse(r);['orKey','veniceKey','chatModel','imgModel','maxTokens','moodSeed'].forEach(function(k){if(d[k]&&$(k))$(k).value=d[k];});}catch(e){}}
 function getKeys(){try{var r=localStorage.getItem(KEYS_KEY);return r?JSON.parse(r):{};}catch(e){return {};}}
@@ -476,7 +572,7 @@ function pinBackspace(){if(!pinBuf.length)return;pinBuf=pinBuf.slice(0,-1);dots(
 function dots(n,err){for(var i=0;i<4;i++){var d=$('pin-d'+i);if(!d)continue;d.classList.remove('filled','error');if(i<n)d.classList.add(err?'error':'filled');}}
 function clearDots(){pinBuf='';dots(0,false);}
 function processPinEntry(){var e=pinBuf;pinBuf='';
-  if(pinMode==='unlock'){if(e===getPin()){$('pinLock').classList.remove('open');clearDots();$('pinErrorMsg').textContent='';}else{dots(4,true);$('pinErrorMsg').textContent='Incorrect PIN';setTimeout(function(){clearDots();$('pinErrorMsg').textContent='';},800);}}
+  if(pinMode==='unlock'){if(e===getPin()){$('pinLock').classList.remove('open');clearDots();$('pinErrorMsg').textContent='';openContactsScreen();}else{dots(4,true);$('pinErrorMsg').textContent='Incorrect PIN';setTimeout(function(){clearDots();$('pinErrorMsg').textContent='';},800);}}
   else if(pinMode==='set-new'){pinTemp=e;pinMode='confirm-new';clearDots();$('pinPromptText').textContent='Confirm new PIN';$('pinErrorMsg').textContent='';}
   else if(pinMode==='confirm-new'){if(e===pinTemp){setPin(e);$('pinLock').classList.remove('open');clearDots();pinMode='unlock';pinTemp='';updatePinUi();toast('PIN set ✓');}
     else{dots(4,true);$('pinErrorMsg').textContent="PINs don't match";setTimeout(function(){clearDots();pinMode='set-new';pinTemp='';$('pinPromptText').textContent='Enter new PIN';$('pinErrorMsg').textContent='';},900);}}
@@ -713,7 +809,19 @@ var WIZ_N=8;
 var WIZ_TITLES=['Identity','Face','Body','Voice & Communication','Her World','Personality','Desires & Dynamic','Memory Seeds'];
 
 function openWizard(){wizData=Object.assign({},partner.wizData||{});wizStep=0;renderStep();$('wizardOverlay').classList.add('open');}
-function closeWizard(){$('wizardOverlay').classList.remove('open');}
+function closeWizard(){
+  $('wizardOverlay').classList.remove('open');
+  // If user cancelled wizard for a brand-new contact, clean it up
+  if(isNewContact){
+    isNewContact=false;
+    contacts=contacts.filter(function(c){return c.id!==activeId;});
+    // Fall back to previous contact or empty state
+    activeId=contacts.length?contacts[0].id:null;
+    if(activeId)loadContact(activeId);else{partner=blankPartner();msgs=[];}
+    updateHeader();renderHistory();updateBackBtn();
+    openContactsScreen();
+  }
+}
 
 function renderStep(){
   $('wizTitle').textContent=WIZ_TITLES[wizStep];
@@ -1166,7 +1274,10 @@ function finishWizard(){
   partner.systemPrompt=buildSysPrompt();
   partner.appearance=buildAppearanceStr();
   partner.wizData=wizData;
-  save();updateHeader();closeWizard();toast('Companion saved ✓');
+  var wasNew=isNewContact;
+  isNewContact=false;
+  save();updateHeader();updateBackBtn();closeWizard();
+  if(wasNew)toast(partner.name+' created ✓');else toast('Companion saved ✓');
 }
 
 // ═══════════════════════════════════════════════════
@@ -1454,6 +1565,113 @@ function openSettings(){
 }
 function closeSettings(){$('settingsOverlay').classList.remove('open');}
 function saveSettings(){saveKeys();closeSettings();toast('Settings saved ✓');}
+// ═══════════════════════════════════════════════════
+// CONTACTS SCREEN
+// ═══════════════════════════════════════════════════
+function fmtContactTime(ts){
+  if(!ts)return '';
+  var d=new Date(ts),now=new Date();
+  var diffDays=Math.floor((now-d)/86400000);
+  if(diffDays===0)return fmtTime(ts);
+  if(diffDays===1)return 'Yesterday';
+  if(diffDays<7)return d.toLocaleDateString('en-GB',{weekday:'short'});
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+
+function renderContacts(){
+  var list=$('contactList');
+  list.innerHTML='';
+  if(!contacts.length){
+    list.innerHTML='<div class="contacts-empty"><img src="icon-192.png" alt=""><p>No companions yet.<br>Tap <strong>+</strong> to create your first.</p><div class="contacts-empty-hint">Private · Local · Yours</div></div>';
+    return;
+  }
+  contacts.forEach(function(c){
+    var lastTextMsg=null;
+    for(var i=c.msgs.length-1;i>=0;i--){if(c.msgs[i].role==='user'||c.msgs[i].role==='assistant'){lastTextMsg=c.msgs[i];break;}}
+    var row=document.createElement('div');
+    row.className='contact-row';
+    row.setAttribute('data-id',c.id);
+    // Avatar
+    var ava=document.createElement('div');ava.className='contact-row-ava';
+    if(c.partner.imageB64){var img=document.createElement('img');img.src='data:image/jpeg;base64,'+c.partner.imageB64;ava.appendChild(img);}
+    else ava.textContent='🦜';
+    // Body
+    var body=document.createElement('div');body.className='contact-row-body';
+    var top=document.createElement('div');top.className='contact-row-top';
+    var name=document.createElement('div');name.className='contact-row-name';name.textContent=c.partner.name||'New Companion';
+    var time=document.createElement('div');time.className='contact-row-time';time.textContent=lastTextMsg?fmtContactTime(lastTextMsg.ts):'';
+    top.appendChild(name);top.appendChild(time);
+    var preview=document.createElement('div');
+    var previewText='No messages yet';
+    var previewUser=false;
+    if(lastTextMsg){previewText=lastTextMsg.content.replace(/\n+/g,' ').trim().slice(0,72);previewUser=lastTextMsg.role==='user';}
+    preview.className='contact-row-preview'+(previewUser?' you':'');
+    preview.textContent=(previewUser?'You: ':'')+previewText;
+    body.appendChild(top);body.appendChild(preview);
+    row.appendChild(ava);row.appendChild(body);
+    row.addEventListener('click',function(){selectContact(c.id);});
+    row.addEventListener('contextmenu',function(e){e.preventDefault();deleteContactPrompt(c.id,c.partner.name||'this companion');});
+    list.appendChild(row);
+  });
+}
+
+function openContactsScreen(){
+  renderContacts();
+  $('contactsScreen').classList.add('open');
+}
+
+function closeContactsScreen(){
+  $('contactsScreen').classList.remove('open');
+}
+
+function selectContact(id){
+  if(activeId&&activeId!==id)saveContact(); // persist current before switching
+  loadContact(id);
+  updateHeader();
+  renderHistory();
+  closeContactsScreen();
+  updateBackBtn();
+}
+
+function goToContacts(){
+  saveContact();
+  openContactsScreen();
+}
+
+function updateBackBtn(){
+  var btn=$('backBtn');
+  if(contacts.length>1)btn.classList.add('visible');else btn.classList.remove('visible');
+}
+
+function newContact(){
+  var c={id:mkId(),partner:blankPartner(),msgs:[]};
+  contacts.push(c);
+  activeId=c.id;
+  partner=blankPartner();
+  msgs=[];
+  wizData={};
+  isNewContact=true;
+  closeContactsScreen();
+  updateHeader();
+  renderHistory();
+  updateBackBtn();
+  openWizard();
+}
+
+function deleteContactPrompt(id,name){
+  if(!confirm('Delete '+name+'?\nThis cannot be undone.'))return;
+  contacts=contacts.filter(function(c){return c.id!==id;});
+  if(activeId===id){
+    activeId=contacts.length?contacts[0].id:null;
+    if(activeId)loadContact(activeId);
+    else{partner=blankPartner();msgs=[];}
+    updateHeader();renderHistory();updateBackBtn();
+  }
+  save();
+  renderContacts();
+  toast(name+' deleted');
+}
+
 function openCopySheet(){$('copyOverlay').classList.add('open');}
 function closeCopySheet(){$('copyOverlay').classList.remove('open');}
 function copyTranscript(n){
@@ -1514,7 +1732,10 @@ loadKeys();
 if(partner.wizData)wizData=Object.assign({},partner.wizData);
 updateHeader();
 renderHistory();
-initPin();
+updateBackBtn();
+// Show contacts screen (or PIN first if set)
+initPin(); // shows PIN if set — PIN unlock will call openContactsScreen()
+if(!getPin()){openContactsScreen();}
 $('messages').addEventListener('scroll',function(){var m=$('messages');var atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<60;$('scrollBtn').style.display=atBottom?'none':'';});
 </script>
 </body>
