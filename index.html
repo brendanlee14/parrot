@@ -635,7 +635,7 @@ function buildPhotoPrompt(sceneDesc){
   if(eth)base.push(eth);
   // Face
   if(v(d1,'w_skin'))base.push(v(d1,'w_skin')+' skin');
-  if(v(d1,'w_face_shape')&&v(d1,'w_face_shape')!=='Other'){var fs=v(d1,'w_face_shape').toLowerCase();base.push(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs+' face');}
+  if(v(d1,'w_face_shape')&&v(d1,'w_face_shape')!=='Other'){var fs=v(d1,'w_face_shape').toLowerCase();base.push(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs==='diamond'?'diamond-shaped face, wide cheekbones, narrow forehead and chin':fs+' face');}
   if(v(d1,'w_eye_colour'))base.push(v(d1,'w_eye_colour')+' eyes');
   if(v(d1,'w_eye_shape')&&v(d1,'w_eye_shape')!=='Other')base.push(v(d1,'w_eye_shape').toLowerCase()+' eye shape');
   if(v(d1,'w_hair_colour')&&v(d1,'w_hair_length'))base.push(v(d1,'w_hair_colour')+' '+v(d1,'w_hair_length')+' hair');
@@ -651,7 +651,7 @@ function buildPhotoPrompt(sceneDesc){
   if(heat==='suggestive'||heat==='explicit'){if(v(d2,'w_nipples')&&v(d2,'w_nipples')!=='Other')base.push(v(d2,'w_nipples').toLowerCase()+' nipples');}
   if(heat==='explicit'){
     if(v(d2,'w_areola_size')||(v(d2,'w_areola_colour'))){base.push((v(d2,'w_areola_size')||'').toLowerCase()+' '+(v(d2,'w_areola_colour')||'').toLowerCase()+' areola');}
-    if(v(d2,'w_pubic')&&v(d2,'w_pubic')!=='Other')base.push(v(d2,'w_pubic').toLowerCase()+' pubic hair');
+    if(v(d2,'w_pubic')&&v(d2,'w_pubic')!=='Other'){var pub=v(d2,'w_pubic').toLowerCase();base.push(pub==='triangle'?'neatly trimmed triangle-shaped pubic hair':pub+' pubic hair');}
   }
   // Heat-level quality tail
   var tail={
@@ -1028,7 +1028,7 @@ function buildPromptFromWizData(){
   var p=[subject];
   // Face
   if(d1.w_skin)p.push(d1.w_skin+' skin');
-  if(d1.w_face_shape&&d1.w_face_shape!=='Other'){var fs=d1.w_face_shape.toLowerCase();p.push(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs+' face shape');}
+  if(d1.w_face_shape&&d1.w_face_shape!=='Other'){var fs=d1.w_face_shape.toLowerCase();p.push(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs==='diamond'?'diamond-shaped face, wide cheekbones, narrow forehead and chin':fs+' face shape');}
   if(d1.w_eye_colour)p.push(d1.w_eye_colour+' eyes');
   if(d1.w_eye_shape&&d1.w_eye_shape!=='Other')p.push(d1.w_eye_shape.toLowerCase()+' eye shape');
   if(d1.w_hair_colour&&d1.w_hair_length)p.push(d1.w_hair_colour+' '+d1.w_hair_length+' hair');
@@ -1046,7 +1046,7 @@ function buildPromptFromWizData(){
   }
   if(heat==='explicit'){
     if(d2.w_areola_size)p.push((d2.w_areola_size).toLowerCase()+' '+(d2.w_areola_colour||'').toLowerCase()+' areola');
-    if(d2.w_pubic&&d2.w_pubic!=='Other')p.push(d2.w_pubic.toLowerCase()+' pubic hair');
+    if(d2.w_pubic&&d2.w_pubic!=='Other'){var pub=d2.w_pubic.toLowerCase();p.push(pub==='triangle'?'neatly trimmed triangle-shaped pubic hair':pub+' pubic hair');}
   }
   return p.join(', ')+', photorealistic, sharp focus, natural warm lighting, 8k';
 }
