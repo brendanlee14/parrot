@@ -494,6 +494,25 @@ var HIST=30, HIST_THRESHOLD=25, VERBATIM_BUFFER=10;
 var partner={name:'',systemPrompt:'',appearance:'',imageB64:null,wizData:{},sessionSummary:null,longTermMemory:[],summaryUpToIdx:0};
 var msgs=[], busy=false, lastSeed=null;
 
+// Session mood — random per page load, overridden by manual seed or summary
+var sessionMood=null;
+var MOOD_POOL=[
+  'restless, something on her mind she hasn\'t said yet',
+  'in a good mood — something small went right today',
+  'a little distracted, not quite here yet',
+  'tired but wired — can\'t switch off',
+  'sharp and present — more focused than usual',
+  'slightly impatient, not sure why',
+  'quietly content — nothing specific, just easy today',
+  'on edge, covering it well',
+  'playful — the kind of mood where everything is slightly funny',
+  'softer than usual, not guarding much today',
+  'been in her head all day, this is the first proper break',
+  'a bit guarded — had something not go her way',
+  'light and easy — rare, but real today'
+];
+function getSessionMood(){if(!sessionMood)sessionMood=MOOD_POOL[Math.floor(Math.random()*MOOD_POOL.length)];return sessionMood;}
+
 // Contacts store
 var contacts=[];      // [{id, partner, msgs}]
 var activeId=null;    // id of the contact currently open in chat
@@ -1353,10 +1372,15 @@ function buildMsgs(){
   // Base system: prompt + time context
   var fullSys = sys + '\n\n' + buildTimeContext();
 
-  // Mood seed — injected live so it can change daily without re-saving partner
+  // Mood — priority: manual seed > session summary emotional_state > random session mood
   var moodSeed = getKeys().moodSeed||'';
   if(moodSeed.trim()){
     fullSys += '\n\nCURRENT MOOD:\n— Today she is: '+moodSeed.trim()+'\n— This colours her energy and availability. It should surface through behaviour, not be announced.';
+  } else {
+    var autoMood=(partner.sessionSummary&&partner.sessionSummary.emotional_state)
+      ?partner.sessionSummary.emotional_state
+      :getSessionMood();
+    fullSys += '\n\nCURRENT MOOD:\n— '+autoMood+'\n— Let this colour her tone and availability. Do not announce it.';
   }
 
   // ── BELOW THRESHOLD: send everything raw ──
