@@ -1019,12 +1019,12 @@ function setHeat(btn){var p=$('wiz_heat');if(!p)return;p.querySelectorAll('.heat
 
 // ── PORTRAIT ──
 function buildPromptFromWizData(){
-  var d0=wizData[0]||{},d1=wizData[1]||{},d2=wizData[2]||{},d6=wizData[6]||{};
-  var p=[];
-  var heat=d6.w_heat||'explicit';
-  // Identity
-  if(d0.w_age)p.push(d0.w_age+' year old woman');
-  var eth=d0.w_ethnicity;if(eth==='Other'||eth==='Mixed')eth=d0.w_ethnicity_other||eth;if(eth&&eth!=='— select —')p.push(eth);
+  var d0=wizData[0]||{},d1=wizData[1]||{},d2=wizData[2]||{};
+  // Build subject line first — SD models need framing at the top
+  var age=d0.w_age?d0.w_age+' year old ':'';
+  var eth=d0.w_ethnicity||'';if(eth==='Other'||eth==='Mixed')eth=d0.w_ethnicity_other||'';if(eth==='— select —')eth='';
+  var subject='portrait photograph of a '+(age)+(eth?eth+' ':'')+'woman, solo, alone';
+  var p=[subject];
   // Face
   if(d1.w_skin)p.push(d1.w_skin+' skin');
   if(d1.w_face_shape&&d1.w_face_shape!=='Other')p.push(d1.w_face_shape.toLowerCase()+' face shape');
@@ -1033,21 +1033,13 @@ function buildPromptFromWizData(){
   if(d1.w_hair_colour&&d1.w_hair_length)p.push(d1.w_hair_colour+' '+d1.w_hair_length+' hair');
   if(d1.w_hair_style&&d1.w_hair_style!=='Other')p.push(d1.w_hair_style.toLowerCase());
   if(d1.w_face_feature)p.push(d1.w_face_feature);
-  // Body
+  // Body (portrait-safe — no explicit intimate details, those confuse GPT enhancement step)
   if(d2.w_height&&d2.w_height!=='Other')p.push(d2.w_height.replace(/\s*\(.*?\)/g,'').trim().toLowerCase());
   if(d2.w_bodytype&&d2.w_bodytype!=='Other')p.push(d2.w_bodytype.toLowerCase()+' build');
   if(d2.w_hips&&d2.w_hips!=='Other')p.push(d2.w_hips.toLowerCase()+' hips');
   if(d2.w_breast_size){var bDesc=d2.w_breast_size;if(d2.w_breast_shape&&d2.w_breast_shape!=='Other')bDesc+=', '+d2.w_breast_shape.toLowerCase();p.push(bDesc+' breasts');}
   if(d2.w_body_extra)p.push(d2.w_body_extra);
-  // Heat-gated intimate details
-  if(heat==='suggestive'||heat==='explicit'){
-    if(d2.w_nipples&&d2.w_nipples!=='Other')p.push(d2.w_nipples.toLowerCase()+' nipples');
-  }
-  if(heat==='explicit'){
-    if(d2.w_areola_size||(d2.w_areola_colour)){var ac=(d2.w_areola_size||'').toLowerCase()+' '+(d2.w_areola_colour||'').toLowerCase()+' areola';p.push(ac.trim());}
-    if(d2.w_pubic&&d2.w_pubic!=='Other')p.push(d2.w_pubic.toLowerCase()+' pubic hair');
-  }
-  return p.join(', ')+', portrait photograph, natural warm lighting, photorealistic, real person, sharp focus';
+  return p.join(', ')+', photorealistic, sharp focus, natural warm lighting, 8k';
 }
 
 function lockWizSeed(){if(lastSeed){$('w_port_seed').value=lastSeed;toast('Seed locked: '+lastSeed);}else toast('Generate first to get a seed');}
