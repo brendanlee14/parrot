@@ -579,7 +579,23 @@ function loadContact(id){
 
 function save(){
   saveContact();
-  try{localStorage.setItem(STORE_KEY,JSON.stringify({v:2,contacts:contacts,activeId:activeId}));}catch(e){toast('⚠ Storage full');}
+  // Strip imageB64 from photo messages before persisting — they are transient.
+  // On reload they render as "📷 Photo expired". Portrait (partner.imageB64) is kept.
+  var payload={v:2,activeId:activeId,contacts:contacts.map(function(c){
+    return Object.assign({},c,{msgs:c.msgs.map(function(m){
+      if(m.role==='photo'&&m.imageB64){var s=Object.assign({},m);delete s.imageB64;return s;}
+      return m;
+    })});
+  })};
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(payload));}
+  catch(e){
+    // Storage still full even without photo data — prune oldest 20 messages per contact
+    payload.contacts=payload.contacts.map(function(c){
+      return Object.assign({},c,{msgs:c.msgs.slice(-100)});
+    });
+    try{localStorage.setItem(STORE_KEY,JSON.stringify(payload));}
+    catch(e2){toast('⚠ Storage full — clear some chat history in Settings');}
+  }
 }
 
 function load(){
