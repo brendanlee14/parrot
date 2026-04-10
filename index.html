@@ -165,6 +165,8 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 #imgViewer.open{display:flex;}
 #imgViewer img{max-width:100%;max-height:100%;object-fit:contain;}
 #imgViewerClose{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.08);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+#imgViewerDl{position:absolute;top:16px;right:64px;background:rgba(255,255,255,.08);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+#imgViewerDl:active{background:rgba(255,255,255,.18);}
 ::-webkit-scrollbar{width:3px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 
 /* INLINE PHOTO BUBBLES */
@@ -404,6 +406,7 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 <!-- IMG VIEWER -->
 <div id="imgViewer" onclick="closeImgViewer()">
   <img id="imgViewerImg" src="" alt="Portrait">
+  <button id="imgViewerDl" onclick="downloadViewerImg()" title="Save image">↓</button>
   <button id="imgViewerClose" onclick="closeImgViewer()">✕</button>
 </div>
 <div id="toast"></div>
@@ -632,15 +635,25 @@ function buildPhotoPrompt(sceneDesc){
   if(eth)base.push(eth);
   // Face
   if(v(d1,'w_skin'))base.push(v(d1,'w_skin')+' skin');
-  if(v(d1,'w_hair_colour')&&v(d1,'w_hair_length'))base.push(v(d1,'w_hair_colour')+' '+v(d1,'w_hair_length')+' hair');
-  if(v(d1,'w_hair_style')&&v(d1,'w_hair_style')!=='Other')base.push(v(d1,'w_hair_style'));
+  if(v(d1,'w_face_shape')&&v(d1,'w_face_shape')!=='Other')base.push(v(d1,'w_face_shape').toLowerCase()+' face');
   if(v(d1,'w_eye_colour'))base.push(v(d1,'w_eye_colour')+' eyes');
+  if(v(d1,'w_eye_shape')&&v(d1,'w_eye_shape')!=='Other')base.push(v(d1,'w_eye_shape').toLowerCase()+' eye shape');
+  if(v(d1,'w_hair_colour')&&v(d1,'w_hair_length'))base.push(v(d1,'w_hair_colour')+' '+v(d1,'w_hair_length')+' hair');
+  if(v(d1,'w_hair_style')&&v(d1,'w_hair_style')!=='Other')base.push(v(d1,'w_hair_style').toLowerCase());
   if(v(d1,'w_face_feature'))base.push(v(d1,'w_face_feature'));
   // Body
-  if(v(d2,'w_bodytype'))base.push(v(d2,'w_bodytype')+' body');
-  if(v(d2,'w_breast_size'))base.push(v(d2,'w_breast_size')+' breasts');
-  // Heat-level quality tail
   var heat=v(d6,'w_heat')||'explicit';
+  if(v(d2,'w_height')&&v(d2,'w_height')!=='Other')base.push(v(d2,'w_height').replace(/\s*\(.*?\)/g,'').trim().toLowerCase());
+  if(v(d2,'w_bodytype'))base.push(v(d2,'w_bodytype')+' body');
+  if(v(d2,'w_hips')&&v(d2,'w_hips')!=='Other')base.push(v(d2,'w_hips').toLowerCase()+' hips');
+  if(v(d2,'w_breast_size')){var bpDesc=v(d2,'w_breast_size');if(v(d2,'w_breast_shape')&&v(d2,'w_breast_shape')!=='Other')bpDesc+=', '+v(d2,'w_breast_shape').toLowerCase();base.push(bpDesc+' breasts');}
+  if(v(d2,'w_body_extra'))base.push(v(d2,'w_body_extra'));
+  if(heat==='suggestive'||heat==='explicit'){if(v(d2,'w_nipples')&&v(d2,'w_nipples')!=='Other')base.push(v(d2,'w_nipples').toLowerCase()+' nipples');}
+  if(heat==='explicit'){
+    if(v(d2,'w_areola_size')||(v(d2,'w_areola_colour'))){base.push((v(d2,'w_areola_size')||'').toLowerCase()+' '+(v(d2,'w_areola_colour')||'').toLowerCase()+' areola');}
+    if(v(d2,'w_pubic')&&v(d2,'w_pubic')!=='Other')base.push(v(d2,'w_pubic').toLowerCase()+' pubic hair');
+  }
+  // Heat-level quality tail
   var tail={
     flirty:'clothed, candid selfie, shot on phone camera, natural light, slightly imperfect framing, casual, real person',
     suggestive:'sensual, lingerie or partial undress, amateur phone selfie, natural light, candid, slightly imperfect, authentic',
@@ -1006,18 +1019,35 @@ function setHeat(btn){var p=$('wiz_heat');if(!p)return;p.querySelectorAll('.heat
 
 // ── PORTRAIT ──
 function buildPromptFromWizData(){
-  var d0=wizData[0]||{},d1=wizData[1]||{},d2=wizData[2]||{};
+  var d0=wizData[0]||{},d1=wizData[1]||{},d2=wizData[2]||{},d6=wizData[6]||{};
   var p=[];
+  var heat=d6.w_heat||'explicit';
+  // Identity
   if(d0.w_age)p.push(d0.w_age+' year old woman');
   var eth=d0.w_ethnicity;if(eth==='Other'||eth==='Mixed')eth=d0.w_ethnicity_other||eth;if(eth&&eth!=='— select —')p.push(eth);
+  // Face
   if(d1.w_skin)p.push(d1.w_skin+' skin');
-  if(d1.w_hair_colour&&d1.w_hair_length)p.push(d1.w_hair_colour+' '+d1.w_hair_length+' hair');
-  if(d1.w_hair_style)p.push(d1.w_hair_style);
+  if(d1.w_face_shape&&d1.w_face_shape!=='Other')p.push(d1.w_face_shape.toLowerCase()+' face shape');
   if(d1.w_eye_colour)p.push(d1.w_eye_colour+' eyes');
+  if(d1.w_eye_shape&&d1.w_eye_shape!=='Other')p.push(d1.w_eye_shape.toLowerCase()+' eye shape');
+  if(d1.w_hair_colour&&d1.w_hair_length)p.push(d1.w_hair_colour+' '+d1.w_hair_length+' hair');
+  if(d1.w_hair_style&&d1.w_hair_style!=='Other')p.push(d1.w_hair_style.toLowerCase());
   if(d1.w_face_feature)p.push(d1.w_face_feature);
-  if(d2.w_bodytype)p.push(d2.w_bodytype+' build');
-  if(d2.w_breast_size)p.push(d2.w_breast_size+' breasts');
-  return 'portrait photograph, '+p.join(', ')+', photorealistic, sharp focus, studio lighting, detailed skin, 8k';
+  // Body
+  if(d2.w_height&&d2.w_height!=='Other')p.push(d2.w_height.replace(/\s*\(.*?\)/g,'').trim().toLowerCase());
+  if(d2.w_bodytype&&d2.w_bodytype!=='Other')p.push(d2.w_bodytype.toLowerCase()+' build');
+  if(d2.w_hips&&d2.w_hips!=='Other')p.push(d2.w_hips.toLowerCase()+' hips');
+  if(d2.w_breast_size){var bDesc=d2.w_breast_size;if(d2.w_breast_shape&&d2.w_breast_shape!=='Other')bDesc+=', '+d2.w_breast_shape.toLowerCase();p.push(bDesc+' breasts');}
+  if(d2.w_body_extra)p.push(d2.w_body_extra);
+  // Heat-gated intimate details
+  if(heat==='suggestive'||heat==='explicit'){
+    if(d2.w_nipples&&d2.w_nipples!=='Other')p.push(d2.w_nipples.toLowerCase()+' nipples');
+  }
+  if(heat==='explicit'){
+    if(d2.w_areola_size||(d2.w_areola_colour)){var ac=(d2.w_areola_size||'').toLowerCase()+' '+(d2.w_areola_colour||'').toLowerCase()+' areola';p.push(ac.trim());}
+    if(d2.w_pubic&&d2.w_pubic!=='Other')p.push(d2.w_pubic.toLowerCase()+' pubic hair');
+  }
+  return p.join(', ')+', portrait photograph, natural warm lighting, photorealistic, real person, sharp focus';
 }
 
 function lockWizSeed(){if(lastSeed){$('w_port_seed').value=lastSeed;toast('Seed locked: '+lastSeed);}else toast('Generate first to get a seed');}
@@ -1051,7 +1081,11 @@ function renderWizPortrait(b64){
   var prev=$('wizPortrait');if(!prev)return;
   var empty=$('wizPortraitEmpty');if(empty)empty.style.display='none';
   var ex=prev.querySelector('img');if(ex)ex.remove();
+  var eb=prev.querySelector('.wiz-expand-badge');if(eb)eb.remove();
   var img=document.createElement('img');img.src='data:image/jpeg;base64,'+b64;prev.insertBefore(img,prev.firstChild);
+  var badge=document.createElement('div');badge.className='wiz-expand-badge';
+  badge.style.cssText='position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.5);border-radius:6px;padding:4px 7px;font-size:.62rem;color:rgba(255,255,255,.75);pointer-events:none;letter-spacing:.04em;';
+  badge.textContent='⛶ expand';prev.appendChild(badge);
 }
 
 // ── BUILD SYSTEM PROMPT ──
@@ -1715,6 +1749,13 @@ function clearChat(){
 }
 function viewPortrait(){if(!partner.imageB64)return;$('imgViewerImg').src='data:image/jpeg;base64,'+partner.imageB64;$('imgViewer').classList.add('open');}
 function closeImgViewer(){$('imgViewer').classList.remove('open');}
+function downloadViewerImg(){
+  var src=$('imgViewerImg').src;if(!src||src===location.href)return;
+  var a=document.createElement('a');
+  a.href=src;
+  a.download=(partner.name||'photo')+'-'+Date.now()+'.jpg';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
 function autoGrow(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 function inputKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
 function overlayClick(e,id){if(e.target.id===id)$(id).classList.remove('open');}
