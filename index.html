@@ -608,7 +608,7 @@ function doVenice(prompt,vKey,model,seed,onDone,onError){
   fetch('https://api.venice.ai/api/v1/image/generate',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+vKey},
     body:JSON.stringify({model:model,prompt:prompt.replace(/,\s*,+/g,',').trim(),
-      negative_prompt:'ugly, deformed, disfigured, censored, mosaic, bad anatomy, extra limbs, watermark, text, logo, studio lighting, professional photography, ai-generated look, overly perfect skin, fashion editorial',
+      negative_prompt:'ugly, deformed, disfigured, censored, mosaic, bad anatomy, extra limbs, watermark, text, logo, studio lighting, professional photography, ai-generated look, overly perfect skin, fashion editorial, hearts, heart symbols, floating hearts, heart overlays',
       width:832,height:1216,steps:30,hide_watermark:true,return_binary:false,safe_mode:false,seed:seed})
   }).then(function(res){
     if(!res.ok){return res.json().then(function(e){var m=e.message||e.error||'Venice error '+res.status;if(res.status===404)m='Model not found — check Settings';throw new Error(m);}).catch(function(je){if(je.message&&je.message.includes('Model not found'))throw je;throw new Error('Venice error '+res.status);});}
@@ -635,7 +635,7 @@ function buildPhotoPrompt(sceneDesc){
   if(eth)base.push(eth);
   // Face
   if(v(d1,'w_skin'))base.push(v(d1,'w_skin')+' skin');
-  if(v(d1,'w_face_shape')&&v(d1,'w_face_shape')!=='Other')base.push(v(d1,'w_face_shape').toLowerCase()+' face');
+  if(v(d1,'w_face_shape')&&v(d1,'w_face_shape')!=='Other'){var fs=v(d1,'w_face_shape').toLowerCase();base.push(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs+' face');}
   if(v(d1,'w_eye_colour'))base.push(v(d1,'w_eye_colour')+' eyes');
   if(v(d1,'w_eye_shape')&&v(d1,'w_eye_shape')!=='Other')base.push(v(d1,'w_eye_shape').toLowerCase()+' eye shape');
   if(v(d1,'w_hair_colour')&&v(d1,'w_hair_length'))base.push(v(d1,'w_hair_colour')+' '+v(d1,'w_hair_length')+' hair');
@@ -1028,7 +1028,7 @@ function buildPromptFromWizData(){
   var p=[subject];
   // Face
   if(d1.w_skin)p.push(d1.w_skin+' skin');
-  if(d1.w_face_shape&&d1.w_face_shape!=='Other')p.push(d1.w_face_shape.toLowerCase()+' face shape');
+  if(d1.w_face_shape&&d1.w_face_shape!=='Other'){var fs=d1.w_face_shape.toLowerCase();p.push(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs+' face shape');}
   if(d1.w_eye_colour)p.push(d1.w_eye_colour+' eyes');
   if(d1.w_eye_shape&&d1.w_eye_shape!=='Other')p.push(d1.w_eye_shape.toLowerCase()+' eye shape');
   if(d1.w_hair_colour&&d1.w_hair_length)p.push(d1.w_hair_colour+' '+d1.w_hair_length+' hair');
