@@ -176,9 +176,23 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 .photo-loading{width:160px;height:213px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:.75rem;}
 .photo-loading .spin{font-size:1.2rem;color:var(--accent2);}
 .photo-expired{width:160px;height:60px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:.72rem;font-style:italic;}
-/* Camera button */
-#camBtn{width:42px;height:42px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:1.05rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
-#camBtn:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2);}
+/* Camera buttons */
+#camBtn,#myPhotoBtn{width:42px;height:42px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-size:1.05rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+#camBtn:active,#myPhotoBtn:active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2);}
+/* My Photo modal */
+#myPhotoModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:flex-end;justify-content:center;}
+#myPhotoSheet{background:var(--surface2);border-radius:18px 18px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;box-sizing:border-box;}
+.mps-title{font-size:.8rem;color:var(--muted);text-align:center;margin-bottom:14px;letter-spacing:.05em;text-transform:uppercase;}
+.mps-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.mps-chip{background:var(--surface3);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 13px;font-size:.78rem;cursor:pointer;}
+.mps-chip:active,.mps-chip.sel{background:var(--accent-dim);border-color:var(--accent);color:var(--accent2);}
+#myPhotoDesc{width:100%;box-sizing:border-box;background:var(--surface3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.88rem;padding:10px 12px;margin-bottom:14px;}
+.mps-btns{display:flex;gap:10px;}
+.mps-btns button{flex:1;padding:11px;border-radius:10px;border:none;font-size:.9rem;cursor:pointer;}
+.mps-btns .mps-cancel{background:var(--surface3);color:var(--muted);}
+.mps-btns .mps-send{background:var(--accent);color:#fff;font-weight:600;}
+/* User photo bubble */
+.user-photo-bub{background:var(--accent-dim);border:1px solid var(--accent);border-radius:16px 16px 3px 16px;padding:10px 14px;font-size:.85rem;color:var(--accent2);max-width:72%;}
 
 /* CONTACTS SCREEN */
 #contactsScreen{display:none;position:fixed;inset:0;background:var(--bg);z-index:500;flex-direction:column;overflow:hidden;}
@@ -207,7 +221,7 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
 /* back button in chat header */
 #backBtn{display:none;}
 #backBtn.visible{display:flex;}
-#camBtn:disabled{opacity:.4;pointer-events:none;}
+#camBtn:disabled,#myPhotoBtn:disabled{opacity:.4;pointer-events:none;}
 
 /* ANIMATIONS */
 @keyframes bubbleIn{from{opacity:0;transform:translateY(6px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
@@ -285,6 +299,7 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
   </div>
   <div class="input-bar">
     <button id="camBtn" onclick="requestPhoto()" title="Ask for a photo">📷</button>
+    <button id="myPhotoBtn" onclick="openMyPhotoModal()" title="Send her a photo">🤳</button>
     <textarea id="msgInput" placeholder="Message…" rows="1" onkeydown="inputKeydown(event)" oninput="autoGrow(this)"></textarea>
     <button id="sendBtn" onclick="sendMessage()">➤</button>
   </div>
@@ -408,6 +423,26 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
   <img id="imgViewerImg" src="" alt="Portrait">
   <button id="imgViewerDl" onclick="downloadViewerImg()" title="Save image">↓</button>
   <button id="imgViewerClose" onclick="closeImgViewer()">✕</button>
+</div>
+<div id="myPhotoModal">
+  <div id="myPhotoSheet">
+    <div class="mps-title">Send her a photo</div>
+    <div class="mps-chips">
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'selfie, looking at camera')">selfie</span>
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'mirror selfie, full length')">mirror selfie</span>
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'shirtless selfie')">shirtless</span>
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'at the gym, post-workout')">at the gym</span>
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'lying in bed, casual')">in bed</span>
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'heading out, dressed up')">heading out</span>
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'at work')">at work</span>
+      <span class="mps-chip" onclick="selectMyPhotoChip(this,'just got out of the shower')">just showered</span>
+    </div>
+    <input id="myPhotoDesc" type="text" placeholder="or describe it…">
+    <div class="mps-btns">
+      <button class="mps-cancel" onclick="closeMyPhotoModal()">Cancel</button>
+      <button class="mps-send" onclick="sendMyPhoto()">Send</button>
+    </div>
+  </div>
 </div>
 <div id="toast"></div>
 <button id="scrollBtn" onclick="scrollBot()">↓</button>
@@ -767,6 +802,89 @@ function firePhoto(sceneDesc){
   );
 }
 
+// ── SEND A PHOTO TO HER ──
+function openMyPhotoModal(){
+  if(!partner.name||partner.name==='Your Companion'){toast('Set up your companion first');return;}
+  var m=$('myPhotoModal');m.style.display='flex';
+  setTimeout(function(){$('myPhotoDesc').focus();},80);
+}
+function closeMyPhotoModal(){
+  var m=$('myPhotoModal');m.style.display='none';
+  $('myPhotoDesc').value='';
+  document.querySelectorAll('.mps-chip').forEach(function(c){c.classList.remove('sel');});
+}
+function selectMyPhotoChip(el,text){
+  document.querySelectorAll('.mps-chip').forEach(function(c){c.classList.remove('sel');});
+  el.classList.add('sel');
+  $('myPhotoDesc').value=text;
+}
+function sendMyPhoto(){
+  var desc=$('myPhotoDesc').value.trim();
+  if(!desc){toast('Describe the photo first');return;}
+  closeMyPhotoModal();
+  // Add user-side photo bubble
+  var row=document.createElement('div');row.className='msg-row user';
+  var bub=document.createElement('div');bub.className='bubble user-photo-bub';
+  var icon=document.createElement('span');icon.textContent='📷 ';
+  var cap=document.createElement('em');cap.textContent=desc;
+  bub.appendChild(icon);bub.appendChild(cap);
+  var tm=document.createElement('div');tm.className='msg-time';tm.textContent=fmtTime();
+  row.appendChild(bub);row.appendChild(tm);
+  $('messages').appendChild(row);scrollBot();
+  $('emptyChat').style.display='none';
+  // Store as user message so AI sees it in context
+  msgs.push({role:'user',content:'[I sent her a photo: '+desc+']',ts:Date.now()});
+  save();
+  // Trigger her response
+  if(busy)return;
+  var keys=getKeys(),orKey=keys.orKey||'';
+  if(!orKey){toast('Add OpenRouter key in Settings ⚙');return;}
+  setStatus('typing\u2026','status-typing');
+  $('hdrAvatar').classList.add('pulsing');
+  var typId='typ-'+Date.now();addTyping(typId);
+  busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;$('myPhotoBtn').disabled=true;$('myPhotoBtn').disabled=true;
+  var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
+  var maxTok=parseInt(keys.maxTokens)||500;
+  var stream=null,first=true;
+  streamFetch(orKey,model,buildMsgs(),{maxTokens:maxTok,
+    onChunk:function(txt){if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}if(stream){var p=parsePhotoTags(txt);updateStream(stream,p.cleanText||'\u2026');}},
+    onDone:function(txt){
+      removeEl(typId);if(stream){stream.remove();stream=null;}
+      var parsed=parsePhotoTags(txt);var cleanTxt=parsed.cleanText.trim();
+      if(cleanTxt){
+        var chunks=cleanTxt.split(/\n\n+/).map(function(s){return s.trim();}).filter(Boolean);
+        if(!chunks.length)chunks=[cleanTxt];
+        var delay=0;
+        chunks.forEach(function(chunk,i){
+          setTimeout(function(){
+            addBubble('assistant',chunk);
+            if(i===chunks.length-1){
+              msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+              var userRows=document.querySelectorAll('.msg-row.user');
+              if(userRows.length){var tick=document.createElement('div');tick.style.cssText='font-size:.55rem;color:var(--accent);text-align:right;padding:0 14px 2px;';tick.textContent='\u2713\u2713 read';userRows[userRows.length-1].after(tick);}
+              setStatus(getNormalStatus());$('hdrAvatar').classList.remove('pulsing');
+              save();maybeRunSummariser(orKey);
+              busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;$('myPhotoBtn').disabled=false;
+            }
+          },delay);
+          delay+=400+Math.min(chunk.length*4,600);
+        });
+      } else {
+        setStatus(getNormalStatus());$('hdrAvatar').classList.remove('pulsing');
+        save();maybeRunSummariser(orKey);
+        busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;$('myPhotoBtn').disabled=false;
+      }
+      parsed.photos.forEach(function(desc){firePhoto(desc);});
+    },
+    onError:function(err){
+      removeEl(typId);if(stream)stream.remove();
+      addError(err?err.message:'Error');
+      setStatus(getNormalStatus());$('hdrAvatar').classList.remove('pulsing');
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;$('myPhotoBtn').disabled=false;
+    }
+  });
+}
+
 // User-initiated photo request — sends invisible trigger to AI
 function requestPhoto(){
   if(busy)return;
@@ -785,7 +903,7 @@ function requestPhoto(){
   setStatus('typing\u2026','status-typing');
   $('hdrAvatar').classList.add('pulsing');
   var typId='typ-'+Date.now();addTyping(typId);
-  busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;
+  busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;$('myPhotoBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
   var maxTok=parseInt(keys.maxTokens)||500;
   var stream=null,first=true;
@@ -811,14 +929,14 @@ function requestPhoto(){
       $('hdrAvatar').classList.remove('pulsing');
       save();
       maybeRunSummariser(orKey);
-      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
     },
     onError:function(err){
       removeEl(typId);if(stream)stream.remove();
       addError(err?err.message:'Error');
       setStatus(getNormalStatus());
       $('hdrAvatar').classList.remove('pulsing');
-      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
     }
   });
 }
@@ -1503,7 +1621,7 @@ function sendMessage(){
   setStatus('typing\u2026','status-typing');
   $('hdrAvatar').classList.add('pulsing');
   var typId='typ-'+Date.now();addTyping(typId);
-  busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;
+  busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;$('myPhotoBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
   var maxTok=parseInt(keys.maxTokens)||500;
   var stream=null,first=true;
@@ -1534,7 +1652,7 @@ function sendMessage(){
               $('hdrAvatar').classList.remove('pulsing');
               save();
               maybeRunSummariser(orKey);
-              busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+              busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
             }
           },delay);
           delay+=400+Math.min(chunk.length*4,600);
@@ -1545,7 +1663,7 @@ function sendMessage(){
         $('hdrAvatar').classList.remove('pulsing');
         save();
         maybeRunSummariser(orKey);
-        busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+        busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
       }
       // Fire Venice for each [PHOTO: ...] tag
       parsed.photos.forEach(function(desc){firePhoto(desc);});
@@ -1560,7 +1678,7 @@ function sendMessage(){
       addError(err?err.message:'Error');
       setStatus(getNormalStatus());
       $('hdrAvatar').classList.remove('pulsing');
-      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
     }
   });
 }
