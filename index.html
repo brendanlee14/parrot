@@ -526,7 +526,8 @@ var SEX_BEHAVIOURS = ['Vocalises her own actions','Controls pace deliberately','
 // STATE
 // ═══════════════════════════════════════════════════
 var APP_VERSION='1.3.0';
-var STORE_KEY='parrot_v2', STORE_KEY_V1='parrot_v1', KEYS_KEY='parrot_keys_v1', PIN_KEY='parrot_pin_v1';
+var STORE_KEY='parrot_v2', STORE_KEY_V1='parrot_v1', STORE_KEY_V3='parrot_v3', KEYS_KEY='parrot_keys_v1', PIN_KEY='parrot_pin_v1';
+var DB_NAME='parrot_db', DB_VERSION=1, db=null;
 var HIST=30, HIST_THRESHOLD=25, VERBATIM_BUFFER=10;
 
 // Working variables — always point to the active contact's data
@@ -577,53 +578,83 @@ function loadContact(id){
   if(partner.wizData)wizData=Object.assign({},partner.wizData);
 }
 
+// ── INDEXEDDB STORAGE ──
+function openDB(cb){
+  if(db){cb(db);return;}
+  if(!window.indexedDB){cb(null);return;}
+  var req=indexedDB.open(DB_NAME,DB_VERSION);
+  req.onupgradeneeded=function(e){var d=e.target.result;if(!d.objectStoreNames.contains('state'))d.createObjectStore('state');};
+  req.onsuccess=function(e){db=e.target.result;cb(db);};
+  req.onerror=req.onblocked=function(){cb(null);};
+}
+
 function save(){
   saveContact();
-  // Strip imageB64 from photo messages before persisting — they are transient.
-  // On reload they render as "📷 Photo expired". Portrait (partner.imageB64) is kept.
-  var payload={v:2,activeId:activeId,contacts:contacts.map(function(c){
+  // Strip chat-photo imageB64 (transient) — portrait (partner.imageB64) is kept
+  var payload={v:3,activeId:activeId,contacts:contacts.map(function(c){
     return Object.assign({},c,{msgs:c.msgs.map(function(m){
       if(m.role==='photo'&&m.imageB64){var s=Object.assign({},m);delete s.imageB64;return s;}
       return m;
     })});
   })};
-  try{localStorage.setItem(STORE_KEY,JSON.stringify(payload));}
-  catch(e){
-    // Storage still full even without photo data — prune oldest 20 messages per contact
-    payload.contacts=payload.contacts.map(function(c){
-      return Object.assign({},c,{msgs:c.msgs.slice(-100)});
-    });
-    try{localStorage.setItem(STORE_KEY,JSON.stringify(payload));}
-    catch(e2){toast('⚠ Storage full — clear some chat history in Settings');}
-  }
+  // Primary: IndexedDB — no quota limit, portraits preserved
+  openDB(function(d){
+    if(d){try{d.transaction('state','readwrite').objectStore('state').put(payload,'main');}catch(e){}}
+  });
+  // Backup: localStorage text-only (portraits stripped — safety net for IDB-unavailable envs)
+  var lsPayload=Object.assign({},payload,{contacts:payload.contacts.map(function(c){
+    var p=Object.assign({},c.partner);delete p.imageB64;
+    return Object.assign({},c,{partner:p});
+  })});
+  try{localStorage.setItem(STORE_KEY_V3,JSON.stringify(lsPayload));}catch(e){}
 }
 
-function load(){
+function applyData(data){
+  if(!data||!Array.isArray(data.contacts))return;
+  contacts=data.contacts;
+  activeId=data.activeId||null;
+  if(activeId&&!contacts.find(function(x){return x.id===activeId;}))activeId=null;
+  if(!activeId&&contacts.length)activeId=contacts[0].id;
+  if(activeId)loadContact(activeId);
+}
+
+function migrateV1(d){
   try{
-    // Try v2 first
-    var r2=localStorage.getItem(STORE_KEY);
-    if(r2){
-      var d=JSON.parse(r2);
-      if(d.v===2&&Array.isArray(d.contacts)){
-        contacts=d.contacts;
-        activeId=d.activeId||null;
-        // Validate activeId still exists
-        if(activeId&&!contacts.find(function(x){return x.id===activeId;}))activeId=null;
-        if(!activeId&&contacts.length)activeId=contacts[0].id;
-        if(activeId)loadContact(activeId);
-        return;
-      }
-    }
-    // Migrate from v1
-    var r1=localStorage.getItem(STORE_KEY_V1);
-    if(r1){
-      var d1=JSON.parse(r1);
-      var c={id:mkId(),partner:Object.assign(blankPartner(),d1.partner||{}),msgs:d1.msgs||[]};
-      contacts=[c];
-      activeId=c.id;
-      loadContact(activeId);
-    }
+    var r1=localStorage.getItem(STORE_KEY_V1);if(!r1)return;
+    var d1=JSON.parse(r1);
+    var c={id:mkId(),partner:Object.assign(blankPartner(),d1.partner||{}),msgs:d1.msgs||[]};
+    contacts=[c];activeId=c.id;loadContact(c.id);
+    if(d){d.transaction('state','readwrite').objectStore('state').put({v:3,activeId:c.id,contacts:contacts},'main');}
+    localStorage.removeItem(STORE_KEY_V1);
   }catch(e){}
+}
+
+function loadAll(cb){
+  openDB(function(d){
+    if(!d){
+      // IDB unavailable — fall back to localStorage
+      var r=localStorage.getItem(STORE_KEY_V3)||localStorage.getItem(STORE_KEY);
+      if(r){try{applyData(JSON.parse(r));}catch(e){}}else{migrateV1(null);}
+      cb();return;
+    }
+    var req=d.transaction('state','readonly').objectStore('state').get('main');
+    req.onsuccess=function(e){
+      var data=e.target.result;
+      if(data&&(data.v===3||data.v===2)){applyData(data);cb();return;}
+      // Nothing in IDB — migrate from localStorage
+      var r=localStorage.getItem(STORE_KEY_V3)||localStorage.getItem(STORE_KEY);
+      if(r){
+        try{
+          var lsData=JSON.parse(r);
+          applyData(lsData);
+          d.transaction('state','readwrite').objectStore('state').put(Object.assign({},lsData,{v:3}),'main');
+          localStorage.removeItem(STORE_KEY);
+        }catch(e){}
+      }else{migrateV1(d);}
+      cb();
+    };
+    req.onerror=function(){cb();};
+  });
 }
 function saveKeys(){try{localStorage.setItem(KEYS_KEY,JSON.stringify({orKey:$('orKey').value,veniceKey:$('veniceKey').value,chatModel:$('chatModel').value,imgModel:$('imgModel').value,maxTokens:$('maxTokens').value,moodSeed:$('moodSeed').value}));}catch(e){}}
 function loadKeys(){try{var r=localStorage.getItem(KEYS_KEY);if(!r)return;var d=JSON.parse(r);['orKey','veniceKey','chatModel','imgModel','maxTokens','moodSeed'].forEach(function(k){if(d[k]&&$(k))$(k).value=d[k];});}catch(e){}}
@@ -1933,15 +1964,16 @@ window.addEventListener('beforeunload',function(){save();});
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
-load();
 loadKeys();
-if(partner.wizData)wizData=Object.assign({},partner.wizData);
-updateHeader();
-renderHistory();
-updateBackBtn();
-// Show contacts screen (or PIN first if set)
-initPin(); // shows PIN if set — PIN unlock will call openContactsScreen()
-if(!getPin()){openContactsScreen();}
+loadAll(function(){
+  if(partner.wizData)wizData=Object.assign({},partner.wizData);
+  updateHeader();
+  renderHistory();
+  updateBackBtn();
+  // Show contacts screen (or PIN first if set)
+  initPin(); // shows PIN if set — PIN unlock will call openContactsScreen()
+  if(!getPin()){openContactsScreen();}
+});
 $('messages').addEventListener('scroll',function(){var m=$('messages');var atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<60;$('scrollBtn').style.display=atBottom?'none':'';});
 </script>
 </body>
