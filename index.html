@@ -590,22 +590,22 @@ function openDB(cb){
 
 function save(){
   saveContact();
-  // Strip chat-photo imageB64 (transient) — portrait (partner.imageB64) is kept
-  var payload={v:3,activeId:activeId,contacts:contacts.map(function(c){
-    return Object.assign({},c,{msgs:c.msgs.map(function(m){
-      if(m.role==='photo'&&m.imageB64){var s=Object.assign({},m);delete s.imageB64;return s;}
-      return m;
-    })});
-  })};
-  // Primary: IndexedDB — no quota limit, portraits preserved
+  var payload={v:3,activeId:activeId,contacts:contacts};
+  // Primary: IndexedDB — full data, photos and portraits all kept
   openDB(function(d){
     if(d){try{d.transaction('state','readwrite').objectStore('state').put(payload,'main');}catch(e){}}
   });
-  // Backup: localStorage text-only (portraits stripped — safety net for IDB-unavailable envs)
-  var lsPayload=Object.assign({},payload,{contacts:payload.contacts.map(function(c){
+  // Backup: localStorage — strip all imageB64 (portraits + chat photos) to stay within 5MB cap
+  var lsPayload={v:3,activeId:activeId,contacts:contacts.map(function(c){
     var p=Object.assign({},c.partner);delete p.imageB64;
-    return Object.assign({},c,{partner:p});
-  })});
+    return Object.assign({},c,{
+      partner:p,
+      msgs:c.msgs.map(function(m){
+        if(m.imageB64){var s=Object.assign({},m);delete s.imageB64;return s;}
+        return m;
+      })
+    });
+  })};
   try{localStorage.setItem(STORE_KEY_V3,JSON.stringify(lsPayload));}catch(e){}
 }
 
