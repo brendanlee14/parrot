@@ -582,6 +582,7 @@ function loadContact(id){
 function openDB(cb){
   if(db){cb(db);return;}
   if(!window.indexedDB){cb(null);return;}
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   var req=indexedDB.open(DB_NAME,DB_VERSION);
   req.onupgradeneeded=function(e){var d=e.target.result;if(!d.objectStoreNames.contains('state'))d.createObjectStore('state');};
   req.onsuccess=function(e){db=e.target.result;cb(db);};
@@ -593,7 +594,13 @@ function save(){
   var payload={v:3,activeId:activeId,contacts:contacts};
   // Primary: IndexedDB — full data, photos and portraits all kept
   openDB(function(d){
-    if(d){try{d.transaction('state','readwrite').objectStore('state').put(payload,'main');}catch(e){}}
+    if(!d)return;
+    try{
+      var tx=d.transaction('state','readwrite');
+      tx.objectStore('state').put(payload,'main');
+      tx.onerror=function(){db=null;};
+      tx.onabort=function(){db=null;};
+    }catch(e){db=null;}
   });
   // Backup: localStorage — strip all imageB64 (portraits + chat photos) to stay within 5MB cap
   var lsPayload={v:3,activeId:activeId,contacts:contacts.map(function(c){
