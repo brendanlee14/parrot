@@ -585,7 +585,11 @@ function openDB(cb){
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
   var req=indexedDB.open(DB_NAME,DB_VERSION);
   req.onupgradeneeded=function(e){var d=e.target.result;if(!d.objectStoreNames.contains('state'))d.createObjectStore('state');};
-  req.onsuccess=function(e){db=e.target.result;cb(db);};
+  req.onsuccess=function(e){
+    db=e.target.result;
+    db.onversionchange=function(){db.close();db=null;};
+    cb(db);
+  };
   req.onerror=req.onblocked=function(){cb(null);};
 }
 
@@ -660,7 +664,12 @@ function loadAll(cb){
       }else{migrateV1(d);}
       cb();
     };
-    req.onerror=function(){cb();};
+    req.onerror=function(){
+      // IDB read failed — try localStorage as fallback
+      var r=localStorage.getItem(STORE_KEY_V3)||localStorage.getItem(STORE_KEY);
+      if(r){try{applyData(JSON.parse(r));}catch(e){}}
+      cb();
+    };
   });
 }
 function saveKeys(){try{localStorage.setItem(KEYS_KEY,JSON.stringify({orKey:$('orKey').value,veniceKey:$('veniceKey').value,chatModel:$('chatModel').value,imgModel:$('imgModel').value,maxTokens:$('maxTokens').value,moodSeed:$('moodSeed').value}));}catch(e){}}
