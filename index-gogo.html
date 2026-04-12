@@ -1,0 +1,2598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#080406">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GoGo">
+<title>GoGo</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --bg:#080406;--sf:#130b10;--sf2:#1c1118;--sf3:#261620;
+  --prim:#7d1a2b;--priml:#a8243a;--acc:#c8a44a;--accd:#8f7433;
+  --cream:#f2ede4;--creamd:#b5ada0;--muted:#6a5e52;
+  --bdr:#31161e;--bdrl:#3e1e28;
+  --serif:'Plus Jakarta Sans',system-ui,sans-serif;--sans:'Plus Jakarta Sans',system-ui,sans-serif;--mono:'DM Mono',monospace;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+  --r:16px;--rs:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--cream);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+#app{position:fixed;inset:0;overflow:hidden}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;will-change:transform}
+.screen.right{transform:translateX(100%);pointer-events:none}
+.screen.left{transform:translateX(-26%);opacity:.45;pointer-events:none}
+.nav{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:calc(var(--st) + 12px) 16px 12px;background:var(--sf);border-bottom:1px solid var(--bdr);min-height:calc(var(--st) + 56px);position:relative;z-index:100}
+.navG{flex:1;overflow:hidden}
+.navW{display:block;font-size:10px;font-weight:400;color:var(--acc);letter-spacing:.15em;text-transform:uppercase;margin-bottom:1px}
+.navT{font-family:var(--sans);font-size:20px;font-weight:700;letter-spacing:-.02em}
+.iBtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--bdrl);background:var(--sf2);color:var(--creamd);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s}
+.iBtn:active{background:var(--sf3)}
+.iBtn svg{width:20px;height:20px;stroke-width:1.5}
+.iBtnG{background:rgba(8,4,6,.6)!important;border-color:rgba(255,255,255,.13)!important}
+.gScroll{flex:1;overflow-y:auto;padding:14px;padding-bottom:calc(14px + var(--sb));-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.gScroll::-webkit-scrollbar{display:none}
+.gGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.card{background:var(--sf);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;cursor:pointer;aspect-ratio:2/3;position:relative;transition:transform .15s}
+.card:active{transform:scale(.95)}
+.card-img{width:100%;height:100%;object-fit:cover;display:block}
+.card-ph{width:100%;height:100%;background:linear-gradient(155deg,var(--sf2) 0%,var(--sf3) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.card-ph svg{width:36px;height:36px;color:var(--muted);opacity:.4}
+.card-ph span{font-size:11px;color:var(--muted)}
+.card-ov{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(8,4,6,.93) 38%);padding:28px 12px 12px}
+.card-name{font-family:var(--sans);font-size:16px;font-weight:700;letter-spacing:-.01em;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+.card-role{font-size:10px;color:var(--acc);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.cnt-badge{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:3px 9px;font-size:11px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:4px}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:48px 32px;text-align:center}
+.emptyIcon{font-size:52px;opacity:.25}
+.empty h2{font-family:var(--sans);font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--creamd)}
+.empty p{font-size:14px;color:var(--muted);line-height:1.6}
+.fab{position:fixed;bottom:calc(20px + var(--sb));right:18px;width:54px;height:54px;border-radius:50%;background:linear-gradient(140deg,var(--prim),var(--priml));border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 24px rgba(125,26,43,.55);transition:transform .15s;z-index:90}
+.fab:active{transform:scale(.9)}
+.fab svg{width:24px;height:24px;stroke-width:2}
+/* ── Gallery toolbar ── */
+.gToolbar{display:flex;gap:8px;padding:10px 14px 2px;flex-shrink:0}
+.gSearchWrap{flex:1;position:relative}
+.gSearchWrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted);pointer-events:none;flex-shrink:0}
+.gSearchInput{width:100%;background:var(--sf2);border:1px solid var(--bdr);border-radius:22px;padding:9px 12px 9px 34px;font-family:var(--sans);font-size:14px;color:var(--cream);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.gSearchInput::placeholder{color:var(--muted)}
+.gSearchInput:focus{border-color:var(--bdrl)}
+.gSearchInput::-webkit-search-cancel-button{-webkit-appearance:none}
+.gSortBtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--bdr);background:var(--sf2);color:var(--creamd);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,border-color .15s,color .15s;position:relative}
+.gSortBtn:active{background:var(--sf3)}
+.gSortBtn.sorted{border-color:var(--acc);color:var(--acc)}
+.gSortBtn svg{width:18px;height:18px;stroke-width:1.5}
+.gNoMatch{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 32px;text-align:center;color:var(--muted);font-size:14px}
+.gNoMatch svg{width:36px;height:36px;opacity:.3}
+/* ── Gallery context menu ── */
+#ctxMenu{z-index:350}
+.ctxCharName{font-size:12px;color:var(--muted);padding:0 20px 12px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--bdr)}
+.ctxItem{display:flex;align-items:center;gap:14px;padding:15px 20px;font-size:15px;color:var(--cream);cursor:pointer;transition:background .12s}
+.ctxItem:active{background:var(--sf2)}
+.ctxItem svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.5}
+.ctxItem.danger{color:#e74c3c}
+#scrChar .nav{position:absolute;top:0;left:0;right:0;background:transparent;border:none;z-index:20}
+.dScroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(20px + var(--sb));scrollbar-width:none}
+.dScroll::-webkit-scrollbar{display:none}
+.crslWrap{background:#000;position:relative;flex-shrink:0}
+.crsl{display:flex;overflow-x:scroll;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.crsl::-webkit-scrollbar{display:none}
+.crslSlide{flex:0 0 100vw;scroll-snap-align:start;cursor:pointer}
+.crslSlide img,.crslPh{width:100vw;height:min(58vh,440px);object-fit:cover;display:block}
+.crslPh{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:linear-gradient(155deg,var(--sf),var(--sf2))}
+.crslPh svg{width:52px;height:52px;color:var(--muted);opacity:.35}
+.crslPh p{font-size:13px;color:var(--muted)}
+.crslGT{position:absolute;top:0;left:0;right:0;height:100px;background:linear-gradient(to bottom,rgba(8,4,6,.72),transparent);pointer-events:none}
+.crslGB{position:absolute;bottom:0;left:0;right:0;height:56px;background:linear-gradient(to top,rgba(8,4,6,.8),transparent);pointer-events:none;display:flex;align-items:flex-end;justify-content:center;padding-bottom:10px}
+.dots{display:flex;gap:5px;align-items:center}
+.dot{background:rgba(255,255,255,.35);border-radius:3px;height:5px;width:5px;transition:width .25s,background .25s}
+.dot.on{background:var(--acc);width:16px}
+.dBody{padding:16px}
+.dNR{display:flex;align-items:baseline;gap:10px;margin-bottom:3px}
+.dName{font-family:var(--sans);font-size:26px;font-weight:700;line-height:1;letter-spacing:-.03em}
+.rBadge{font-size:11px;color:var(--acc);text-transform:uppercase;letter-spacing:.1em}
+.dMeta{font-size:13px;color:var(--muted);margin-bottom:18px}
+.sHead{font-size:10px;font-weight:600;color:var(--acc);text-transform:uppercase;letter-spacing:.14em;margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.sHead::after{content:'';flex:1;height:1px;background:var(--bdr)}
+.infoCard{background:var(--sf);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 14px;margin-bottom:12px}
+.infoRow{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+.iKey{color:var(--muted)}.iVal{color:var(--creamd);text-align:right;max-width:65%}
+.pickerRow{display:flex;gap:8px;margin-bottom:8px}
+.pickerBtn{flex:1;background:var(--sf);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;color:var(--cream);font-family:var(--sans);gap:6px;transition:background .15s}
+.pickerBtn:active{background:var(--sf2)}
+.pbLbl{color:var(--muted);font-size:11px;display:block;margin-bottom:1px}
+.pbVal{color:var(--creamd);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.pickerBtn svg{width:14px;height:14px;color:var(--muted);flex-shrink:0}
+.togs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}
+.tog{padding:8px 13px;border-radius:20px;border:1px solid var(--bdrl);background:var(--sf);color:var(--creamd);font-size:13px;cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.tog.on{background:rgba(125,26,43,.35);border-color:var(--priml);color:var(--cream)}
+.seedWrap{display:flex;gap:8px;margin-bottom:8px}
+.seedInp{flex:1;background:var(--sf);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px 12px;color:var(--cream);font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.seedInp::placeholder{color:var(--muted)}
+.seedInp:focus{outline:none;border-color:var(--accd)}
+.seedLocked .seedInp{border-color:rgba(200,164,74,.5)}
+.seedBtn{padding:10px 12px;border-radius:var(--rs);border:1px solid var(--bdr);background:var(--sf);color:var(--creamd);font-size:12px;font-family:var(--sans);cursor:pointer;transition:all .15s;white-space:nowrap}
+.seedBtn.locked{border-color:var(--accd);color:var(--acc);background:rgba(200,164,74,.08)}
+.presetScroll{display:flex;overflow-x:auto;gap:7px;padding-bottom:4px;scrollbar-width:none;margin-bottom:8px}
+.presetScroll::-webkit-scrollbar{display:none}
+.ppill{flex-shrink:0;padding:6px 13px;border-radius:20px;border:1px solid var(--bdr);background:var(--sf2);color:var(--creamd);font-size:12px;cursor:pointer;white-space:nowrap;font-family:var(--sans);transition:all .15s;display:flex;align-items:center;gap:5px}
+.ppill:active{background:var(--sf3)}
+.ppill.save{border-style:dashed;border-color:var(--accd);color:var(--acc)}
+.ppDel{color:var(--muted);font-size:15px;line-height:1;margin-left:2px}
+.promptSt{font-size:11px;color:var(--muted);padding:4px 0;font-style:italic;min-height:18px}
+.genBtn{width:100%;padding:15px;background:linear-gradient(135deg,var(--prim) 0%,var(--priml) 100%);border:none;border-radius:var(--r);color:#fff;font-family:var(--sans);font-size:16px;font-weight:700;letter-spacing:.01em;cursor:pointer;position:relative;overflow:hidden;transition:transform .15s,opacity .15s;margin-top:14px;margin-bottom:20px}
+.genBtn:not([disabled]):active{transform:scale(.98)}
+.genBtn[disabled]{opacity:.5}
+.genBtnTxt{transition:opacity .2s}
+.genBtnLoad{position:absolute;inset:0;display:none;align-items:center;justify-content:center;gap:10px}
+.genBtn.loading .genBtnTxt{opacity:0}
+.genBtn.loading .genBtnLoad{display:flex}
+.spinRing{width:20px;height:20px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.dangerRow{margin-top:16px;padding-top:16px;border-top:1px solid var(--bdr);display:flex;justify-content:center}
+.sScroll{flex:1;overflow-y:auto;padding:16px;padding-bottom:calc(16px + var(--sb));-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.sScroll::-webkit-scrollbar{display:none}
+.sCard{background:var(--sf);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.sCardT{font-family:var(--sans);font-size:15px;font-weight:700;letter-spacing:-.01em;margin-bottom:14px}
+.fg{margin-bottom:14px}
+.fl{display:block;font-size:11px;color:var(--acc);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-weight:500}
+.fi{width:100%;background:var(--sf2);border:1px solid var(--bdr);border-radius:var(--rs);padding:11px 13px;color:var(--cream);font-family:var(--sans);font-size:14px;transition:border-color .15s;-webkit-appearance:none}
+.fi:focus{outline:none;border-color:var(--accd)}
+.fi::placeholder{color:var(--muted)}
+select.fi{cursor:pointer}
+textarea.fi{resize:none;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--bdr);background:var(--sf2);color:var(--creamd);font-size:13px;cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.chip.sel{background:rgba(125,26,43,.3);border-color:var(--priml);color:var(--cream)}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s}
+#ov.show{opacity:1;pointer-events:all}
+.sheet{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-radius:22px 22px 0 0;z-index:300;transform:translateY(100%);transition:transform .38s cubic-bezier(.4,0,.2,1);max-height:92vh;display:flex;flex-direction:column;padding-bottom:var(--sb)}
+.sheet.open{transform:translateY(0)}
+.pull{width:38px;height:4px;background:var(--bdrl);border-radius:2px;margin:10px auto 2px;flex-shrink:0}
+.shHd{padding:8px 18px 10px;flex-shrink:0;display:flex;align-items:center;gap:10px}
+.shT{font-family:var(--sans);font-size:18px;font-weight:700;letter-spacing:-.01em;flex:1}
+.shBody{flex:1;overflow-y:auto;padding:0 18px 16px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.shBody::-webkit-scrollbar{display:none}
+.shFoot{padding:10px 18px;border-top:1px solid var(--bdr);flex-shrink:0;display:flex;gap:9px}
+.wizProg{display:flex;gap:4px;padding:0 18px 10px;flex-shrink:0}
+.wp{flex:1;height:3px;border-radius:2px;background:var(--bdrl);transition:background .3s}
+.wp.done{background:var(--acc)}
+.wp.active{background:var(--priml)}
+.wstep{display:none}
+.wstep.active{display:block}
+.wizPortBox{width:min(240px,100%);aspect-ratio:2/3;background:var(--sf2);border-radius:var(--r);overflow:hidden;position:relative;margin:12px auto}
+.wizPortBox img{width:100%;height:100%;object-fit:cover;display:block}
+.wGenOv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(8,4,6,.65)}
+.wGenOv.gone{display:none}
+.bigSpin{width:44px;height:44px;border:3px solid rgba(200,164,74,.25);border-top-color:var(--acc);border-radius:50%;animation:spin .85s linear infinite}
+.genHint{font-size:13px;color:var(--creamd);text-align:center;max-width:200px;line-height:1.4}
+.pCat{font-size:10px;font-weight:600;color:var(--acc);text-transform:uppercase;letter-spacing:.12em;padding:12px 0 5px}
+.pOpt{padding:11px 10px;border-bottom:1px solid var(--bdr);cursor:pointer;display:flex;align-items:center;gap:12px;transition:background .12s;border-radius:var(--rs)}
+.pOpt:active{background:var(--sf2)}
+.pOpt.sel{background:rgba(125,26,43,.18)}
+.pOL{flex:1;font-size:14px;color:var(--cream)}
+.pChk{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--bdrl);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.pOpt.sel .pChk{background:var(--prim);border-color:var(--priml)}
+.pOpt.sel .pChk::after{content:'';width:7px;height:7px;background:#fff;border-radius:50%}
+.ccWrap{flex:1;display:none}
+.ccWrap.show{display:block}
+#portFS{position:fixed;inset:0;background:#000;z-index:500;display:flex;align-items:center;justify-content:center;transform:scale(1.06);opacity:0;pointer-events:none;transition:transform .28s,opacity .28s}
+#portFS.open{transform:scale(1);opacity:1;pointer-events:all}
+#portFS img{max-width:100%;max-height:100%;object-fit:contain}
+.fsClose{position:absolute;top:calc(18px + var(--st));right:18px;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.fsInfo{position:absolute;bottom:calc(20px + var(--sb));left:20px;right:20px;display:flex;justify-content:space-between;align-items:flex-end}
+.fsSeedL{font-size:11px;color:rgba(255,255,255,.5);font-variant-numeric:tabular-nums}
+.fsDelBtn{padding:7px 14px;border-radius:20px;background:rgba(180,30,50,.4);border:1px solid rgba(180,30,50,.5);color:#fff;font-size:12px;cursor:pointer;font-family:var(--sans)}
+
+/* Face reference */
+.fsRefBtn{padding:7px 14px;border-radius:20px;background:rgba(200,164,74,.15);border:1px solid rgba(200,164,74,.4);color:var(--acc);font-size:12px;cursor:pointer;font-family:var(--sans);transition:all .2s}
+.fsRefBtn.active{background:rgba(200,164,74,.35);border-color:var(--acc);color:#fff}
+.faceRefBadge{
+  position:absolute;top:10px;left:10px;
+  background:rgba(200,164,74,.9);color:#000;
+  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 10px;border-radius:12px;pointer-events:none;
+  display:flex;align-items:center;gap:5px;
+}
+.faceRefBadge svg{width:11px;height:11px}
+.faceRefCard{
+  background:rgba(200,164,74,.08);border:1px solid rgba(200,164,74,.25);
+  border-radius:var(--rs);padding:10px 14px;margin-bottom:12px;
+  display:flex;align-items:center;gap:12px;
+}
+.faceRefThumb{width:44px;height:60px;border-radius:6px;object-fit:cover;flex-shrink:0;border:1px solid rgba(200,164,74,.3)}
+.faceRefThumbPh{width:44px;height:60px;border-radius:6px;background:var(--sf2);flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--bdr)}
+.faceRefInfo{flex:1;min-width:0}
+.faceRefLabel{font-size:10px;color:var(--acc);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:2px}
+.faceRefDesc{font-size:12px;color:var(--creamd);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.faceRefActions{display:flex;gap:6px;flex-shrink:0}
+.faceRefExtract{font-size:11px;color:var(--muted);margin-top:6px;font-style:italic;min-height:16px}
+.mWrap{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .22s}
+.mWrap.open{opacity:1;pointer-events:all}
+.mBox{width:100%;max-width:340px;background:var(--sf2);border:1px solid var(--bdrl);border-radius:var(--r);padding:22px}
+.mBox h3{font-family:var(--sans);font-size:18px;font-weight:700;letter-spacing:-.01em;margin-bottom:14px}
+.mActs{display:flex;gap:9px;margin-top:16px}
+.btn{padding:12px 18px;border-radius:var(--rs);border:1px solid transparent;font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s}
+.btnP{background:var(--prim);color:#fff;border-color:var(--priml);flex:1}
+.btnP:active{background:var(--priml)}
+.btnG{background:transparent;color:var(--creamd);border-color:var(--bdr)}
+.btnG:active{background:var(--sf2)}
+.btnD{background:rgba(192,57,43,.2);color:#e74c3c;border-color:rgba(192,57,43,.4);flex:1}
+.btnA{background:rgba(200,164,74,.15);color:var(--acc);border-color:var(--accd);flex:1}
+.btnFull{width:100%}
+#toast{position:fixed;bottom:calc(88px + var(--sb));left:50%;transform:translateX(-50%) translateY(10px);background:var(--sf3);border:1px solid var(--bdrl);border-radius:22px;padding:10px 22px;font-size:13px;color:var(--cream);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;white-space:nowrap;z-index:600}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.ornament{text-align:center;color:var(--acc);opacity:.4;font-size:18px;letter-spacing:6px;margin:6px 0}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.shimmer{background:linear-gradient(90deg,var(--sf) 25%,var(--sf2) 50%,var(--sf) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+
+/* ── PIN LOCK ── */
+#pinScreen{
+  position:fixed;inset:0;z-index:1000;
+  background:linear-gradient(160deg,#0d0508 0%,#130b10 50%,#0d0508 100%);
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .4s,transform .4s;
+}
+#pinScreen.hidden{opacity:0;transform:scale(1.06);pointer-events:none}
+.pinInner{display:flex;flex-direction:column;align-items:center;gap:0;padding:0 24px;width:100%;max-width:320px}
+.pinLogo svg{width:72px;height:72px;border-radius:18px;box-shadow:0 8px 32px rgba(125,26,43,.5)}
+.pinAppName{font-family:var(--sans);font-size:28px;font-weight:800;letter-spacing:-.03em;margin-top:14px;color:var(--cream)}
+.pinSubtitle{font-size:13px;color:var(--muted);margin-top:4px;margin-bottom:28px;letter-spacing:.03em;min-height:20px;transition:color .2s}
+.pinSubtitle.err{color:#e05;animation:shake .35s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.pinDots{display:flex;gap:16px;margin-bottom:32px}
+.pinDot{width:13px;height:13px;border-radius:50%;border:2px solid var(--bdrl);background:transparent;transition:background .18s,border-color .18s,transform .18s}
+.pinDot.filled{background:var(--acc);border-color:var(--acc);transform:scale(1.15)}
+.pinDot.err{background:#e05;border-color:#e05}
+.pinPad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%}
+.pinKey{
+  aspect-ratio:1;border-radius:50%;border:1px solid var(--bdrl);
+  background:var(--sf2);color:var(--cream);
+  font-family:var(--sans);font-size:24px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .12s,transform .1s;-webkit-tap-highlight-color:transparent;
+}
+.pinKey:active{background:var(--sf3);transform:scale(.93)}
+.pinKeyEmpty{background:transparent;border-color:transparent;pointer-events:none}
+.pinKeyDel{background:transparent;border-color:transparent}
+.pinKeyDel svg{width:22px;height:22px;color:var(--creamd)}
+.pinKeyDel:active{background:var(--sf2)}
+
+/* PIN toggle in settings */
+.pinTogRow{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
+.pinTogLabel{font-size:14px;color:var(--cream)}
+.pinTogSub{font-size:12px;color:var(--muted);margin-top:1px}
+.toggle{width:44px;height:26px;border-radius:13px;background:var(--bdr);border:none;cursor:pointer;position:relative;transition:background .25s;flex-shrink:0}
+.toggle.on{background:var(--prim)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .25s;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.toggle.on::after{transform:translateX(18px)}
+
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<!-- GALLERY -->
+<div class="screen" id="scrGallery">
+  <div class="nav">
+    <div class="navG"><span class="navW" style="font-size:9px;letter-spacing:.2em">GoGo</span><span class="navT" style="font-size:24px">Gallery</span><span id="gCount" style="font-size:12px;color:var(--muted);font-weight:400;margin-left:8px;vertical-align:middle"></span></div>
+    <button class="iBtn" onclick="showScreen('settings')" aria-label="Settings">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    </button>
+  </div>
+  <div class="gToolbar">
+    <div class="gSearchWrap">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+      <input class="gSearchInput" id="gSearch" type="search" placeholder="Search characters…" oninput="onGallerySearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+    <button class="gSortBtn" id="gSortBtn" onclick="cycleSort()" aria-label="Sort">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M10 17h4"/></svg>
+    </button>
+  </div>
+  <div id="gCont" class="gScroll"></div>
+  <button class="fab" onclick="openWizard()" aria-label="New character">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+  </button>
+</div>
+
+<!-- GALLERY CONTEXT MENU -->
+<div class="sheet" id="ctxMenu">
+  <div style="width:36px;height:4px;border-radius:2px;background:var(--bdr);margin:10px auto 14px"></div>
+  <div class="ctxCharName" id="ctxCharName"></div>
+  <div class="ctxItem" onclick="ctxOpen()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    Open Character
+  </div>
+  <div class="ctxItem danger" onclick="ctxDelete()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    Delete Character
+  </div>
+</div>
+
+<!-- CHARACTER DETAIL -->
+<div class="screen" id="scrChar">
+  <div class="nav">
+    <button class="iBtn iBtnG" onclick="showScreen('gallery')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div style="flex:1"></div>
+    <button class="iBtn iBtnG" onclick="openModal('mDelete')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    </button>
+  </div>
+  <div class="dScroll">
+    <div class="crslWrap" id="crslWrap">
+      <div class="crsl" id="crsl"></div>
+      <div class="crslGT"></div>
+      <div class="crslGB"><div class="dots" id="dots"></div></div>
+    </div>
+    <div class="dBody" id="dBody"></div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="screen" id="scrSettings">
+  <div class="nav">
+    <button class="iBtn" onclick="showScreen('gallery')">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="navG"><span class="navW">Configure</span><span class="navT">Settings</span></div>
+  </div>
+  <div class="sScroll">
+    <div class="sCard">
+      <div class="sCardT">API Keys</div>
+      <div class="fg">
+        <label class="fl">Venice AI Key</label>
+        <input type="password" class="fi" id="sVeniceKey" placeholder="venice-api-key…" autocomplete="off" oninput="saveSettingsNow()">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">OpenRouter Key <span style="color:var(--muted);text-transform:none;letter-spacing:0">(optional — smart prompts)</span></label>
+        <input type="password" class="fi" id="sOrKey" placeholder="sk-or-v1-…" autocomplete="off" oninput="saveSettingsNow()">
+      </div>
+    </div>
+    <div class="sCard">
+      <div class="sCardT">Image Model</div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Venice Model</label>
+        <select class="fi" id="sModel" onchange="saveSettingsNow()">
+          <option value="lustify-sdxl">Lustify SDXL (default)</option>
+          <option value="hidream-i1-fast">HiDream I1 Fast</option>
+          <option value="seedream-3.0">Seedream V5 Lite</option>
+          <option value="seedream-2">Seedream V4</option>
+          <option value="fluently-xl-final">Fluently XL</option>
+          <option value="nai-banana-pro">Nano Banana Pro</option>
+        </select>
+        <div id="modelFetchSt" style="font-size:11px;color:var(--muted);margin-top:5px;font-style:italic"></div>
+      </div>
+    </div>
+    <div class="sCard">
+      <div class="sCardT">Security</div>
+      <div class="pinTogRow">
+        <div>
+          <div class="pinTogLabel">PIN Lock</div>
+          <div class="pinTogSub" id="pinTogSub">Disabled</div>
+        </div>
+        <button class="toggle" id="pinTogBtn" onclick="togglePin()"></button>
+      </div>
+      <div id="pinChangRow" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
+        <button class="btn btnG btnFull" onclick="startChangePIN()" style="font-size:13px;padding:10px">Change PIN</button>
+      </div>
+    </div>
+    <div class="sCard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="sCardT" style="margin-bottom:0">Generation Log</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btnG" style="font-size:11px;padding:5px 10px" onclick="copyGenLog()">Copy</button>
+          <button class="btn btnG" style="font-size:11px;padding:5px 10px" onclick="clearGenLog()">Clear</button>
+        </div>
+      </div>
+      <div id="genLogBody" style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;max-height:260px;overflow-y:auto;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px">
+        <span style="color:var(--muted);font-style:italic">No generations logged yet</span>
+      </div>
+    </div>
+    <div class="sCard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="sCardT" style="margin-bottom:0">Error Log</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btnG" style="font-size:11px;padding:5px 10px" onclick="copyErrorLog()">Copy</button>
+          <button class="btn btnG" style="font-size:11px;padding:5px 10px" onclick="clearErrorLog()">Clear</button>
+        </div>
+      </div>
+      <div id="errLogBody" style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;max-height:180px;overflow-y:auto;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);padding:10px">
+        <span style="color:var(--muted);font-style:italic">No errors logged</span>
+      </div>
+    </div>
+    <div class="sCard">
+      <div class="sCardT">About</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-family:var(--serif);font-size:16px;font-weight:600;color:var(--cream)">GoGo</span>
+        <span style="font-size:11px;color:var(--acc);background:rgba(200,164,74,.12);border:1px solid rgba(200,164,74,.25);border-radius:20px;padding:3px 10px;letter-spacing:.06em" id="versionBadge">v1.0.0</span>
+      </div>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6">Generates AI character portraits using Venice AI. All data is stored locally — characters in localStorage, portraits in IndexedDB. No external servers beyond the AI APIs you configure.</p>
+      <div class="ornament" style="margin-top:14px">✦ ✦ ✦</div>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY -->
+<div id="ov" onclick="closeAllSheets()"></div>
+
+<!-- WIZARD SHEET -->
+<div class="sheet" id="shWiz">
+  <div class="pull"></div>
+  <div class="shHd"><div class="shT" id="wizTitle">New Character</div></div>
+  <div class="wizProg" id="wizProg">
+    <div class="wp active"></div><div class="wp"></div><div class="wp"></div>
+    <div class="wp"></div><div class="wp"></div><div class="wp"></div>
+  </div>
+  <div class="shBody">
+
+    <!-- Step 0: Identity -->
+    <div class="wstep active" id="wstep0">
+      <div class="fg">
+        <label class="fl">Gender</label>
+        <div class="chips" id="wizGenderC">
+          <div class="chip sel" data-val="Female" onclick="selChip(this,'wizGenderC')">Female</div>
+          <div class="chip" data-val="Male" onclick="selChip(this,'wizGenderC')">Male</div>
+          <div class="chip" data-val="Non-binary" onclick="selChip(this,'wizGenderC')">Non-binary</div>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Age</label><input type="number" class="fi" id="wizAge" placeholder="e.g. 24" min="18" max="80"></div>
+      <div class="fg"><label class="fl">Ethnicity</label>
+        <select class="fi" id="wizEthn">
+          <option value="">Select ethnicity…</option>
+          <optgroup label="Europe">
+            <option>British / English</option>
+            <option>Irish</option>
+            <option>Scottish / Welsh</option>
+            <option>French</option>
+            <option>German / Austrian / Swiss</option>
+            <option>Italian</option>
+            <option>Spanish / Catalan</option>
+            <option>Portuguese</option>
+            <option>Dutch / Belgian / Flemish</option>
+            <option>Scandinavian / Nordic</option>
+            <option>Polish / Czech / Slovak</option>
+            <option>Russian / Ukrainian / Belarusian</option>
+            <option>Greek / Cypriot</option>
+            <option>Romanian / Moldovan</option>
+            <option>Hungarian / Serbian / Croatian</option>
+            <option>Finnish / Estonian / Latvian / Lithuanian</option>
+            <option>Jewish / Ashkenazi</option>
+          </optgroup>
+          <optgroup label="East Asia">
+            <option>Chinese / Han</option>
+            <option>Japanese</option>
+            <option>Korean</option>
+            <option>Taiwanese</option>
+            <option>Mongolian</option>
+            <option>Tibetan</option>
+          </optgroup>
+          <optgroup label="Southeast Asia">
+            <option>Thai</option>
+            <option>Vietnamese</option>
+            <option>Filipino / Filipina</option>
+            <option>Indonesian / Javanese / Balinese</option>
+            <option>Malaysian / Singaporean</option>
+            <option>Cambodian / Khmer</option>
+            <option>Burmese / Myanmar</option>
+            <option>Laotian</option>
+          </optgroup>
+          <optgroup label="South Asia">
+            <option>Indian / North Indian</option>
+            <option>Indian / South Indian / Tamil</option>
+            <option>Indian / Bengali</option>
+            <option>Pakistani / Punjabi</option>
+            <option>Bangladeshi</option>
+            <option>Sri Lankan / Sinhalese</option>
+            <option>Nepali</option>
+          </optgroup>
+          <optgroup label="Middle East &amp; Central Asia">
+            <option>Arab / Egyptian</option>
+            <option>Arab / Levantine (Syrian, Lebanese, Jordanian)</option>
+            <option>Arab / Gulf (Emirati, Saudi, Kuwaiti)</option>
+            <option>Arab / Moroccan / Maghrebi</option>
+            <option>Iranian / Persian</option>
+            <option>Turkish</option>
+            <option>Kurdish</option>
+            <option>Israeli / Mizrahi Jewish</option>
+            <option>Afghan / Pashtun</option>
+            <option>Uzbek / Kazakh / Kyrgyz</option>
+          </optgroup>
+          <optgroup label="Sub-Saharan Africa">
+            <option>West African / Nigerian / Ghanaian</option>
+            <option>East African / Kenyan / Ethiopian</option>
+            <option>Somali</option>
+            <option>South African / Zulu / Xhosa</option>
+            <option>Congolese / Central African</option>
+            <option>Senegalese / Malian</option>
+          </optgroup>
+          <optgroup label="Americas">
+            <option>African American / Black American</option>
+            <option>Hispanic / Mexican</option>
+            <option>Hispanic / Colombian / Venezuelan</option>
+            <option>Hispanic / Argentinian / Chilean</option>
+            <option>Brazilian / Afro-Brazilian</option>
+            <option>Brazilian / Euro-Brazilian</option>
+            <option>Indigenous / Native American</option>
+            <option>Caribbean / Afro-Caribbean</option>
+          </optgroup>
+          <optgroup label="Pacific &amp; Oceania">
+            <option>Māori / Pacific Islander</option>
+            <option>Aboriginal Australian</option>
+            <option>Hawaiian / Polynesian</option>
+          </optgroup>
+          <optgroup label="Mixed &amp; Other">
+            <option>Mixed — Black &amp; White</option>
+            <option>Mixed — Asian &amp; White</option>
+            <option>Mixed — Asian &amp; Black</option>
+            <option>Mixed — Hispanic &amp; White</option>
+            <option>Mixed — Multiple</option>
+            <option>Other / Unspecified</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+
+    <!-- Step 1: Build -->
+    <div class="wstep" id="wstep1">
+      <div class="fg"><label class="fl">Height</label>
+        <select class="fi" id="wizHeight">
+          <option value="">Select height…</option>
+          <option>Petite (under 5'2")</option><option>Short (5'2"–5'4")</option>
+          <option>Average (5'5"–5'6")</option><option>Tall (5'7"–5'9")</option><option>Very tall (5'10"+)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Body Type</label>
+        <div class="chips" id="wizBodyC">
+          <div class="chip" data-val="slim, slender body" onclick="selChip(this,'wizBodyC')">Slim</div>
+          <div class="chip" data-val="athletic, toned body" onclick="selChip(this,'wizBodyC')">Athletic</div>
+          <div class="chip" data-val="average build" onclick="selChip(this,'wizBodyC')">Average</div>
+          <div class="chip" data-val="curvaceous, voluptuous body" onclick="selChip(this,'wizBodyC')">Curvaceous</div>
+          <div class="chip" data-val="plus-size body, full figured" onclick="selChip(this,'wizBodyC')">Plus-size</div>
+          <div class="chip" data-val="petite compact body" onclick="selChip(this,'wizBodyC')">Petite</div>
+        </div>
+      </div>
+      <div class="fg" id="wizBustGrp">
+        <label class="fl">Breast Size</label>
+        <div class="chips" id="wizBustC">
+          <div class="chip" data-val="flat chest, small breasts, A cup" onclick="selChip(this,'wizBustC')">A / Flat</div>
+          <div class="chip" data-val="small B cup breasts" onclick="selChip(this,'wizBustC')">B cup</div>
+          <div class="chip" data-val="C cup breasts" onclick="selChip(this,'wizBustC')">C cup</div>
+          <div class="chip" data-val="large D cup breasts" onclick="selChip(this,'wizBustC')">D cup</div>
+          <div class="chip" data-val="large DD cup breasts, E cup" onclick="selChip(this,'wizBustC')">DD/E cup</div>
+          <div class="chip" data-val="huge F cup breasts, very large bust" onclick="selChip(this,'wizBustC')">F+ cup</div>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Additional details <span style="color:var(--muted);text-transform:none">(optional)</span></label>
+        <textarea class="fi" id="wizMeas" rows="3" placeholder="Waist, hips, distinctive features…"></textarea>
+      </div>
+    </div>
+
+    <!-- Step 2: Face -->
+    <div class="wstep" id="wstep2">
+      <div class="fg">
+        <label class="fl">Face Shape</label>
+        <div class="chips" id="wizFaceC">
+          <div class="chip" data-val="oval face shape" onclick="selChip(this,'wizFaceC')">Oval</div>
+          <div class="chip" data-val="round face shape" onclick="selChip(this,'wizFaceC')">Round</div>
+          <div class="chip" data-val="heart-shaped face" onclick="selChip(this,'wizFaceC')">Heart</div>
+          <div class="chip" data-val="square jawline" onclick="selChip(this,'wizFaceC')">Square</div>
+          <div class="chip" data-val="angular face" onclick="selChip(this,'wizFaceC')">Angular</div>
+          <div class="chip" data-val="soft delicate features" onclick="selChip(this,'wizFaceC')">Delicate</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Eye Color</label>
+        <div class="chips" id="wizEyeC">
+          <div class="chip" data-val="dark brown eyes" onclick="selChip(this,'wizEyeC')">Dark Brown</div>
+          <div class="chip" data-val="light brown eyes" onclick="selChip(this,'wizEyeC')">Light Brown</div>
+          <div class="chip" data-val="amber eyes" onclick="selChip(this,'wizEyeC')">Amber</div>
+          <div class="chip" data-val="hazel eyes" onclick="selChip(this,'wizEyeC')">Hazel</div>
+          <div class="chip" data-val="green eyes" onclick="selChip(this,'wizEyeC')">Green</div>
+          <div class="chip" data-val="blue eyes" onclick="selChip(this,'wizEyeC')">Blue</div>
+          <div class="chip" data-val="light blue eyes, pale blue eyes" onclick="selChip(this,'wizEyeC')">Ice Blue</div>
+          <div class="chip" data-val="grey eyes" onclick="selChip(this,'wizEyeC')">Grey</div>
+          <div class="chip" data-val="blue-grey eyes" onclick="selChip(this,'wizEyeC')">Blue-Grey</div>
+          <div class="chip" data-val="grey-green eyes" onclick="selChip(this,'wizEyeC')">Grey-Green</div>
+          <div class="chip" data-val="dark eyes, black eyes" onclick="selChip(this,'wizEyeC')">Black</div>
+          <div class="chip" data-val="violet eyes, purple eyes" onclick="selChip(this,'wizEyeC')">Violet</div>
+          <div class="chip" data-val="heterochromia, different colored eyes" onclick="selChip(this,'wizEyeC')">Heterochromia</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Hair Color</label>
+        <div class="chips" id="wizHairColC">
+          <div class="chip" data-val="jet black hair" onclick="selChip(this,'wizHairColC')">Jet Black</div>
+          <div class="chip" data-val="black hair" onclick="selChip(this,'wizHairColC')">Black</div>
+          <div class="chip" data-val="dark brown hair, espresso hair" onclick="selChip(this,'wizHairColC')">Dark Brown</div>
+          <div class="chip" data-val="medium brown hair, chestnut hair" onclick="selChip(this,'wizHairColC')">Chestnut</div>
+          <div class="chip" data-val="light brown hair, caramel hair" onclick="selChip(this,'wizHairColC')">Caramel</div>
+          <div class="chip" data-val="dirty blonde hair, dark blonde hair" onclick="selChip(this,'wizHairColC')">Dirty Blonde</div>
+          <div class="chip" data-val="blonde hair, golden blonde hair" onclick="selChip(this,'wizHairColC')">Golden Blonde</div>
+          <div class="chip" data-val="platinum blonde hair, white blonde hair" onclick="selChip(this,'wizHairColC')">Platinum</div>
+          <div class="chip" data-val="strawberry blonde hair" onclick="selChip(this,'wizHairColC')">Strawberry Blonde</div>
+          <div class="chip" data-val="auburn hair, warm red-brown hair" onclick="selChip(this,'wizHairColC')">Auburn</div>
+          <div class="chip" data-val="red hair, copper hair" onclick="selChip(this,'wizHairColC')">Red / Copper</div>
+          <div class="chip" data-val="burgundy hair, dark red hair" onclick="selChip(this,'wizHairColC')">Burgundy</div>
+          <div class="chip" data-val="silver hair, grey hair" onclick="selChip(this,'wizHairColC')">Silver / Grey</div>
+          <div class="chip" data-val="white hair" onclick="selChip(this,'wizHairColC')">White</div>
+          <div class="chip" data-val="pastel pink hair" onclick="selChip(this,'wizHairColC')">Pastel Pink</div>
+          <div class="chip" data-val="pink hair" onclick="selChip(this,'wizHairColC')">Pink</div>
+          <div class="chip" data-val="purple hair, violet hair" onclick="selChip(this,'wizHairColC')">Purple</div>
+          <div class="chip" data-val="blue hair, ocean blue hair" onclick="selChip(this,'wizHairColC')">Blue</div>
+          <div class="chip" data-val="ombre hair, two-tone hair" onclick="selChip(this,'wizHairColC')">Ombré</div>
+          <div class="chip" data-val="highlighted hair, balayage" onclick="selChip(this,'wizHairColC')">Highlights</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Hair Length</label>
+        <div class="chips" id="wizHairLenC">
+          <div class="chip" data-val="pixie cut" onclick="selChip(this,'wizHairLenC')">Pixie</div>
+          <div class="chip" data-val="short hair" onclick="selChip(this,'wizHairLenC')">Short</div>
+          <div class="chip" data-val="shoulder length hair" onclick="selChip(this,'wizHairLenC')">Shoulder</div>
+          <div class="chip" data-val="medium length hair" onclick="selChip(this,'wizHairLenC')">Medium</div>
+          <div class="chip" data-val="long hair" onclick="selChip(this,'wizHairLenC')">Long</div>
+          <div class="chip" data-val="very long hair" onclick="selChip(this,'wizHairLenC')">Very Long</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Hair Style</label>
+        <div class="chips" id="wizHairStC">
+          <div class="chip" data-val="straight hair" onclick="selChip(this,'wizHairStC')">Straight</div>
+          <div class="chip" data-val="wavy hair" onclick="selChip(this,'wizHairStC')">Wavy</div>
+          <div class="chip" data-val="curly hair" onclick="selChip(this,'wizHairStC')">Curly</div>
+          <div class="chip" data-val="braided hair" onclick="selChip(this,'wizHairStC')">Braided</div>
+          <div class="chip" data-val="hair in ponytail" onclick="selChip(this,'wizHairStC')">Ponytail</div>
+          <div class="chip" data-val="hair in bun" onclick="selChip(this,'wizHairStC')">Bun</div>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Distinctive Features <span style="color:var(--muted);text-transform:none">(optional)</span></label>
+        <textarea class="fi" id="wizFeat" rows="2" placeholder="Freckles, dimples, scar, tattoos…"></textarea>
+      </div>
+    </div>
+
+    <!-- Step 3: Personality -->
+    <div class="wstep" id="wstep3">
+      <div class="fg">
+        <label class="fl">Personality Traits</label>
+        <div class="chips" id="wizTraitsC">
+          <div class="chip" data-val="confident" onclick="togChip(this)">Confident</div>
+          <div class="chip" data-val="mysterious" onclick="togChip(this)">Mysterious</div>
+          <div class="chip" data-val="playful" onclick="togChip(this)">Playful</div>
+          <div class="chip" data-val="intelligent" onclick="togChip(this)">Intelligent</div>
+          <div class="chip" data-val="caring" onclick="togChip(this)">Caring</div>
+          <div class="chip" data-val="fierce" onclick="togChip(this)">Fierce</div>
+          <div class="chip" data-val="gentle" onclick="togChip(this)">Gentle</div>
+          <div class="chip" data-val="dominant" onclick="togChip(this)">Dominant</div>
+          <div class="chip" data-val="submissive" onclick="togChip(this)">Submissive</div>
+          <div class="chip" data-val="witty" onclick="togChip(this)">Witty</div>
+          <div class="chip" data-val="damaged" onclick="togChip(this)">Damaged</div>
+          <div class="chip" data-val="ambitious" onclick="togChip(this)">Ambitious</div>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Notes <span style="color:var(--muted);text-transform:none">(optional)</span></label>
+        <textarea class="fi" id="wizNotes" rows="3" placeholder="Background, quirks, anything extra…"></textarea>
+      </div>
+    </div>
+
+    <!-- Step 4: Portrait Preview -->
+    <div class="wstep" id="wstep4">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:4px;line-height:1.5">A portrait is generated from your character's details. You can regenerate before saving.</p>
+      <div class="wizPortBox" id="wizPortBox">
+        <div class="wGenOv" id="wGenOv"><div class="bigSpin"></div><p class="genHint" id="wGenHint">Building prompt…</p></div>
+      </div>
+      <div id="wizErrBox" style="display:none;background:rgba(180,30,50,.15);border:1px solid rgba(180,30,50,.4);border-radius:var(--rs);padding:12px 14px;margin-top:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#e05;margin-bottom:4px">Generation failed</div>
+            <div style="font-size:12px;color:var(--creamd);line-height:1.5;word-break:break-all" id="wizErrMsg"></div>
+          </div>
+          <button onclick="document.getElementById('wizErrBox').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;flex-shrink:0;line-height:1">×</button>
+        </div>
+      </div>
+      <button class="btn btnA btnFull" onclick="wizGenPortrait()" id="wizRegenBtn" style="margin-top:10px">↻ Regenerate Portrait</button>
+    </div>
+
+    <!-- Step 5: Name & Save -->
+    <div class="wstep" id="wstep5">
+      <div style="margin-bottom:20px">
+        <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px">Almost done — give your character a name.</p>
+        <div class="fg"><label class="fl">Name</label><input type="text" class="fi" id="wizName" placeholder="Character name…" autocomplete="off"></div>
+      </div>
+      <div id="wizSummary"></div>
+    </div>
+
+  </div>
+  <div class="shFoot">
+    <button class="btn btnG" id="wizBack" onclick="wizBack()">Back</button>
+    <button class="btn btnP" id="wizNext" onclick="wizNext()" style="flex:2">Continue</button>
+  </div>
+</div>
+
+<!-- POSE SHEET -->
+<div class="sheet" id="shPose">
+  <div class="pull"></div>
+  <div class="shHd">
+    <div class="shT">Pose</div>
+    <button class="iBtn" onclick="closeSheet('shPose')"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+  </div>
+  <div class="shBody" id="poseBody"></div>
+</div>
+
+<!-- CLOTHING SHEET -->
+<div class="sheet" id="shCloth">
+  <div class="pull"></div>
+  <div class="shHd">
+    <div class="shT">Clothing</div>
+    <button class="iBtn" onclick="closeSheet('shCloth')"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+  </div>
+  <div class="shBody" id="clothBody"></div>
+  <div class="shFoot">
+    <div class="ccWrap" id="ccWrap"><input type="text" class="fi" id="ccInp" placeholder="Describe custom clothing…"></div>
+    <button class="btn btnP" onclick="confirmCloth()">Apply</button>
+  </div>
+</div>
+
+<!-- STATE SHEET -->
+<div class="sheet" id="shState">
+  <div class="pull"></div>
+  <div class="shHd">
+    <div class="shT">Expression / State</div>
+    <button class="iBtn" onclick="closeSheet('shState')"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+  </div>
+  <div class="shBody" id="stateBody"></div>
+</div>
+
+<!-- FULLSCREEN PORTRAIT -->
+<div id="portFS">
+  <img id="fsImg" src="" alt="Portrait">
+  <div class="fsClose" onclick="closeFS()"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:18px;height:18px"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></div>
+  <div id="fsFaceRefBadge" class="faceRefBadge" style="display:none">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>
+    Face Reference
+  </div>
+  <div class="fsInfo">
+    <span class="fsSeedL" id="fsSeed"></span>
+    <div style="display:flex;gap:8px">
+      <button class="fsRefBtn" id="fsRefBtn" onclick="toggleFaceRef()">☆ Set as Face</button>
+      <button class="fsDelBtn" id="fsDelBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRESET MODAL -->
+<div class="mWrap" id="mPreset">
+  <div class="mBox">
+    <h3>Save Preset</h3>
+    <div class="fg"><label class="fl">Preset Name</label><input type="text" class="fi" id="pNameInp" placeholder="e.g. Bedroom scene…"></div>
+    <div class="mActs">
+      <button class="btn btnG" onclick="closeModal('mPreset')">Cancel</button>
+      <button class="btn btnP" onclick="confirmSavePreset()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CHARACTER MODAL -->
+<div class="mWrap" id="mDelete">
+  <div class="mBox">
+    <h3>Delete Character?</h3>
+    <p style="font-size:14px;color:var(--muted);line-height:1.5">This will permanently delete this character and all their portraits. This cannot be undone.</p>
+    <div class="mActs">
+      <button class="btn btnG" onclick="closeModal('mDelete')">Cancel</button>
+      <button class="btn btnD" onclick="confirmDelChar()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- PIN LOCK SCREEN -->
+<div id="pinScreen">
+  <div class="pinInner">
+    <div class="pinLogo">
+      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <rect width="80" height="80" rx="16" fill="#0e1a3a"/>
+        <!-- car body -->
+        <rect x="8" y="42" width="64" height="18" rx="4" fill="#c83048"/>
+        <!-- cabin -->
+        <path d="M20 42 L26 26 L54 26 L60 42Z" fill="#a8243a"/>
+        <!-- windows -->
+        <rect x="28" y="29" width="10" height="10" rx="2" fill="#9bd0e8" opacity="0.9"/>
+        <rect x="42" y="29" width="10" height="10" rx="2" fill="#9bd0e8" opacity="0.9"/>
+        <!-- wheels -->
+        <circle cx="24" cy="60" r="8" fill="#181818"/>
+        <circle cx="24" cy="60" r="3.5" fill="#555"/>
+        <circle cx="56" cy="60" r="8" fill="#181818"/>
+        <circle cx="56" cy="60" r="3.5" fill="#555"/>
+        <!-- headlights -->
+        <rect x="9" y="47" width="8" height="5" rx="1.5" fill="#f0d080" opacity="0.9"/>
+        <rect x="63" y="47" width="8" height="5" rx="1.5" fill="#f0d080" opacity="0.9"/>
+      </svg>
+    </div>
+    <div class="pinAppName">GoGo</div>
+    <div class="pinSubtitle" id="pinSubtitle">Enter PIN</div>
+    <div class="pinDots" id="pinDots">
+      <div class="pinDot" id="pd0"></div>
+      <div class="pinDot" id="pd1"></div>
+      <div class="pinDot" id="pd2"></div>
+      <div class="pinDot" id="pd3"></div>
+    </div>
+    <div class="pinPad">
+      <button class="pinKey" onclick="pinPress('1')">1</button>
+      <button class="pinKey" onclick="pinPress('2')">2</button>
+      <button class="pinKey" onclick="pinPress('3')">3</button>
+      <button class="pinKey" onclick="pinPress('4')">4</button>
+      <button class="pinKey" onclick="pinPress('5')">5</button>
+      <button class="pinKey" onclick="pinPress('6')">6</button>
+      <button class="pinKey" onclick="pinPress('7')">7</button>
+      <button class="pinKey" onclick="pinPress('8')">8</button>
+      <button class="pinKey" onclick="pinPress('9')">9</button>
+      <button class="pinKey pinKeyEmpty" disabled></button>
+      <button class="pinKey" onclick="pinPress('0')">0</button>
+      <button class="pinKey pinKeyDel" onclick="pinDel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6H19a1 1 0 011 1v10a1 1 0 01-1 1H12l-7-7 7-7z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN SETUP MODAL -->
+<div class="mWrap" id="mPinSetup">
+  <div class="mBox">
+    <h3 id="pinSetupTitle">Set PIN Lock</h3>
+    <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px" id="pinSetupDesc">Choose a 4-digit PIN to protect GoGo.</p>
+    <div class="pinDots" style="justify-content:center;margin-bottom:14px" id="pinSetupDots">
+      <div class="pinDot" id="spd0"></div>
+      <div class="pinDot" id="spd1"></div>
+      <div class="pinDot" id="spd2"></div>
+      <div class="pinDot" id="spd3"></div>
+    </div>
+    <div class="pinPad" style="max-width:240px;margin:0 auto">
+      <button class="pinKey" onclick="pinSetupPress('1')">1</button>
+      <button class="pinKey" onclick="pinSetupPress('2')">2</button>
+      <button class="pinKey" onclick="pinSetupPress('3')">3</button>
+      <button class="pinKey" onclick="pinSetupPress('4')">4</button>
+      <button class="pinKey" onclick="pinSetupPress('5')">5</button>
+      <button class="pinKey" onclick="pinSetupPress('6')">6</button>
+      <button class="pinKey" onclick="pinSetupPress('7')">7</button>
+      <button class="pinKey" onclick="pinSetupPress('8')">8</button>
+      <button class="pinKey" onclick="pinSetupPress('9')">9</button>
+      <button class="pinKey pinKeyEmpty" disabled></button>
+      <button class="pinKey" onclick="pinSetupPress('0')">0</button>
+      <button class="pinKey pinKeyDel" onclick="pinSetupDel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6H19a1 1 0 011 1v10a1 1 0 01-1 1H12l-7-7 7-7z"/></svg>
+      </button>
+    </div>
+    <div class="mActs" style="margin-top:14px">
+      <button class="btn btnG" onclick="cancelPinSetup()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const VERSION = '1.0.0';
+
+// ── ERROR LOG ──
+const MAX_LOG = 50;
+function getErrLog(){return LS.get('gogo_errlog',[])}
+function saveErrLog(l){LS.set('gogo_errlog',l)}
+function serializeError(err){
+  if(typeof err === 'string') return err;
+  if(err instanceof Error){
+    let out = err.message || String(err);
+    if(err.cause) out += '\nCause: '+serializeError(err.cause);
+    if(err.stack) out += '\n'+err.stack.split('\n').slice(1,4).join('\n'); // top 3 stack frames
+    return out;
+  }
+  try{return JSON.stringify(err,null,2)}catch{return String(err)}
+}
+
+function logError(ctx,err){
+  const msg=serializeError(err);
+  const l=getErrLog();
+  l.unshift({ts:Date.now(),ctx,msg});
+  if(l.length>MAX_LOG)l.length=MAX_LOG;
+  saveErrLog(l);
+  renderErrorLog();
+}
+function renderErrorLog(){
+  const el=$('errLogBody');if(!el)return;
+  const l=getErrLog();
+  if(!l.length){el.innerHTML='<span style="color:var(--muted);font-style:italic">No errors logged</span>';return}
+  el.innerHTML=l.map(e=>{
+    const d=new Date(e.ts);
+    const ts=d.toLocaleDateString()+' '+d.toLocaleTimeString();
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--bdr)">
+      <div style="margin-bottom:3px"><span style="color:var(--acc)">[${esc(ts)}]</span> <span style="color:var(--creamd);font-weight:500">${esc(e.ctx)}</span></div>
+      <pre style="white-space:pre-wrap;word-break:break-all;font-family:var(--mono);font-size:10px;color:var(--cream);line-height:1.5;margin:0">${esc(e.msg)}</pre>
+    </div>`;
+  }).join('');
+}
+function copyErrorLog(){
+  const l=getErrLog();
+  if(!l.length){toast('No errors to copy');return}
+  const txt=l.map(e=>`[${new Date(e.ts).toISOString()}] ${e.ctx}: ${e.msg}`).join('\n');
+  navigator.clipboard.writeText(txt).then(()=>toast('Copied to clipboard')).catch(()=>toast('Copy failed'));
+}
+function clearErrorLog(){saveErrLog([]);renderErrorLog();toast('Error log cleared')}
+
+// ── GENERATION LOG ──
+const MAX_GEN_LOG=30;
+function getGenLog(){return LS.get('gogo_genlog',[])}
+function saveGenLog(l){LS.set('gogo_genlog',l)}
+
+let _genSession=null;
+function genLogStart(char,seed,model,seedSrc,hasOR){
+  _genSession={ts:Date.now(),char:char.name||'?',outcome:'?',lines:[]};
+  _genLogLine('=== Generation Session ===');
+  _genLogLine(`Timestamp: ${new Date(_genSession.ts).toISOString()}`);
+  _genLogLine(`Character: ${char.name||'?'} | Gender: ${char.gender||'—'} | Age: ${char.age||'—'} | Ethnicity: ${char.ethnicity||'—'}`);
+  _genLogLine(`Model: ${model||'lustify-sdxl'} | Seed: ${seed} (${seedSrc}) | AI prompt: ${hasOR?'yes (OpenRouter)':'no (fallback)'}`);
+  _genLogLine(`Toggles: sheer=${!!char._toggles?.sheer} hardNipples=${!!char._toggles?.hardNipples} erect=${!!char._toggles?.erect}`);
+}
+function _genLogLine(line){if(_genSession)_genSession.lines.push(line)}
+function genLogSave(outcome){
+  if(!_genSession)return;
+  _genSession.outcome=outcome;
+  const l=getGenLog();
+  l.unshift(_genSession);
+  if(l.length>MAX_GEN_LOG)l.length=MAX_GEN_LOG;
+  saveGenLog(l);
+  renderGenLog();
+  _genSession=null;
+}
+function renderGenLog(){
+  const el=$('genLogBody');if(!el)return;
+  const l=getGenLog();
+  if(!l.length){el.innerHTML='<span style="color:var(--muted);font-style:italic">No generations logged yet</span>';return}
+  el.innerHTML=l.map(e=>{
+    const ok=e.outcome==='SUCCESS';
+    const col=ok?'var(--acc)':'#e05';
+    const ts=new Date(e.ts).toLocaleString();
+    const lines=e.lines.map(ln=>`<div style="color:${ln.startsWith('===')
+      ?'var(--cream)':ln.startsWith('FATAL')||ln.startsWith('Venice error')||ln.startsWith('Black detected')
+      ?'#e07060':ln.startsWith('Prompt (')||ln.startsWith('Negative (')||ln.startsWith('Black image check')
+      ?'var(--creamd)':'var(--muted)'};white-space:pre-wrap;word-break:break-all">${esc(ln)}</div>`).join('');
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--bdr)">
+      <div style="margin-bottom:4px"><span style="color:${col};font-weight:600">[${e.outcome}]</span> <span style="color:var(--muted);font-size:9px">${esc(ts)}</span> <span style="color:var(--creamd)">${esc(e.char)}</span></div>
+      <div style="padding-left:4px;line-height:1.6">${lines}</div>
+    </div>`;
+  }).join('');
+}
+function copyGenLog(){
+  const l=getGenLog();
+  if(!l.length){toast('No generation log to copy');return}
+  const txt=l.map(e=>{
+    const ts=new Date(e.ts).toISOString();
+    return `[${ts}] ${e.outcome} — ${e.char}\n${e.lines.map(ln=>'  '+ln).join('\n')}`;
+  }).join('\n\n---\n\n');
+  navigator.clipboard.writeText(txt).then(()=>toast('Generation log copied')).catch(()=>toast('Copy failed'));
+}
+function clearGenLog(){saveGenLog([]);renderGenLog();toast('Generation log cleared')}
+
+// ── PIN LOCK ──
+let pinEntry = '';
+let pinSetupEntry = '';
+let pinSetupStage = 0; // 0=enter new, 1=confirm
+let pinSetupFirst = '';
+
+function getPIN(){ return localStorage.getItem('gogo_pin') || '' }
+function setPIN(p){ localStorage.setItem('gogo_pin', p) }
+function isPINEnabled(){ return !!getPIN() }
+
+function pinUpdateDots(entry, prefix){
+  for(let i=0;i<4;i++){
+    const d = document.getElementById((prefix||'p')+'d'+i);
+    if(!d) continue;
+    d.classList.toggle('filled', i < entry.length);
+    d.classList.remove('err');
+  }
+}
+
+function pinPress(digit){
+  if(pinEntry.length >= 4) return;
+  pinEntry += digit;
+  pinUpdateDots(pinEntry, 'p');
+  if(pinEntry.length === 4) setTimeout(pinSubmit, 120);
+}
+
+function pinDel(){
+  pinEntry = pinEntry.slice(0,-1);
+  pinUpdateDots(pinEntry, 'p');
+}
+
+function pinSubmit(){
+  const stored = getPIN();
+  if(pinEntry === stored){
+    // Success
+    $('pinScreen').classList.add('hidden');
+  } else {
+    // Wrong PIN
+    const sub = $('pinSubtitle');
+    sub.textContent = 'Incorrect PIN';
+    sub.classList.add('err');
+    for(let i=0;i<4;i++){ const d=$('pd'+i); if(d){d.classList.add('err');d.classList.remove('filled')} }
+    setTimeout(()=>{
+      sub.classList.remove('err');
+      sub.textContent = 'Enter PIN';
+      for(let i=0;i<4;i++){ const d=$('pd'+i); if(d) d.classList.remove('err') }
+    }, 800);
+    pinEntry = '';
+  }
+}
+
+function showPinScreen(){
+  const ps = $('pinScreen');
+  ps.classList.remove('hidden');
+  pinEntry = '';
+  pinUpdateDots('', 'p');
+  $('pinSubtitle').textContent = 'Enter PIN';
+  $('pinSubtitle').classList.remove('err');
+}
+
+// Lock on visibility change
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden) return;
+  if(isPINEnabled()) showPinScreen();
+});
+
+// ── PIN SETUP (in settings) ──
+function togglePin(){
+  if(isPINEnabled()){
+    // Disable PIN — confirm with current PIN first via setup modal
+    pinSetupStage = 99; // special: disable mode
+    pinSetupEntry = '';
+    pinUpdateDots('','sp');
+    $('pinSetupTitle').textContent = 'Confirm Current PIN';
+    $('pinSetupDesc').textContent = 'Enter your current PIN to disable the lock.';
+    openModal('mPinSetup');
+  } else {
+    // Enable — set new PIN
+    pinSetupStage = 0;
+    pinSetupEntry = '';
+    pinSetupFirst = '';
+    pinUpdateDots('','sp');
+    $('pinSetupTitle').textContent = 'Set PIN Lock';
+    $('pinSetupDesc').textContent = 'Choose a 4-digit PIN to protect GoGo.';
+    openModal('mPinSetup');
+  }
+}
+
+function startChangePIN(){
+  pinSetupStage = 0;
+  pinSetupEntry = '';
+  pinSetupFirst = '';
+  pinUpdateDots('','sp');
+  $('pinSetupTitle').textContent = 'Change PIN';
+  $('pinSetupDesc').textContent = 'Choose a new 4-digit PIN.';
+  openModal('mPinSetup');
+}
+
+function pinSetupPress(digit){
+  if(pinSetupEntry.length >= 4) return;
+  pinSetupEntry += digit;
+  pinUpdateDots(pinSetupEntry,'sp');
+  if(pinSetupEntry.length === 4) setTimeout(pinSetupSubmit, 120);
+}
+
+function pinSetupDel(){
+  pinSetupEntry = pinSetupEntry.slice(0,-1);
+  pinUpdateDots(pinSetupEntry,'sp');
+}
+
+function pinSetupSubmit(){
+  // Disable mode
+  if(pinSetupStage === 99){
+    if(pinSetupEntry === getPIN()){
+      setPIN('');
+      closeModal('mPinSetup');
+      syncPinSettings();
+      toast('PIN lock disabled');
+    } else {
+      pinSetupFlash('Incorrect PIN');
+    }
+    return;
+  }
+  // Stage 0: enter new PIN
+  if(pinSetupStage === 0){
+    pinSetupFirst = pinSetupEntry;
+    pinSetupEntry = '';
+    pinSetupStage = 1;
+    pinUpdateDots('','sp');
+    $('pinSetupTitle').textContent = 'Confirm PIN';
+    $('pinSetupDesc').textContent = 'Enter the same PIN again to confirm.';
+    return;
+  }
+  // Stage 1: confirm
+  if(pinSetupEntry === pinSetupFirst){
+    setPIN(pinSetupEntry);
+    closeModal('mPinSetup');
+    syncPinSettings();
+    toast('PIN lock enabled ✦');
+  } else {
+    pinSetupFlash('PINs don\'t match — try again');
+    pinSetupStage = 0;
+    pinSetupFirst = '';
+  }
+}
+
+function pinSetupFlash(msg){
+  $('pinSetupDesc').style.color = '#e05';
+  $('pinSetupDesc').textContent = msg;
+  for(let i=0;i<4;i++){ const d=$('spd'+i); if(d){d.classList.add('err');d.classList.remove('filled')} }
+  setTimeout(()=>{
+    $('pinSetupDesc').style.color = '';
+    $('pinSetupDesc').textContent = pinSetupStage===0?'Choose a 4-digit PIN.':'Enter the same PIN again.';
+    for(let i=0;i<4;i++){ const d=$('spd'+i); if(d) d.classList.remove('err') }
+    pinSetupEntry = '';
+    pinUpdateDots('','sp');
+  }, 900);
+}
+
+function cancelPinSetup(){
+  closeModal('mPinSetup');
+  pinSetupEntry = '';
+  pinSetupFirst = '';
+  pinSetupStage = 0;
+}
+
+function syncPinSettings(){
+  const on = isPINEnabled();
+  const btn = $('pinTogBtn');
+  const sub = $('pinTogSub');
+  const chg = $('pinChangRow');
+  if(btn) btn.classList.toggle('on', on);
+  if(sub) sub.textContent = on ? 'Enabled — 4-digit PIN' : 'Disabled';
+  if(chg) chg.style.display = on ? '' : 'none';
+}
+
+// CONSTANTS
+const POSES = {
+  'Studio': [
+    { label: 'Standing — neutral', prompt: 'standing, arms relaxed at sides, neutral pose' },
+    { label: 'Standing — hands on hips', prompt: 'standing, hands on hips, confident pose' },
+    { label: 'Sitting — upright', prompt: 'sitting, upright posture, direct gaze' },
+    { label: 'Sitting — legs crossed', prompt: 'sitting, legs elegantly crossed' },
+    { label: 'Kneeling', prompt: 'kneeling, straight back' },
+    { label: 'Lying — on back', prompt: 'lying on back, arms above head' },
+    { label: 'Lying — on stomach', prompt: 'lying on stomach, propped on elbows' },
+    { label: 'Leaning against wall', prompt: 'leaning against wall, casual relaxed pose' },
+  ],
+  'Location': [
+    { label: 'On bed — sitting', prompt: 'sitting on bed, rumpled sheets, bedroom' },
+    { label: 'On bed — lying', prompt: 'lying on bed, bedroom setting, soft sheets' },
+    { label: 'In bath', prompt: 'in bathtub, bubbles, bathroom setting' },
+    { label: 'In shower', prompt: 'in shower, wet skin, water droplets, steam' },
+    { label: 'On sofa', prompt: 'lounging on sofa, living room background' },
+    { label: 'Outdoors — nature', prompt: 'outdoors, natural greenery, soft sunlight' },
+    { label: 'Outdoors — beach', prompt: 'on sandy beach, ocean background, golden light' },
+    { label: 'At mirror', prompt: 'standing at mirror, seeing reflection' },
+  ],
+  'Intimate': [
+    { label: 'Close portrait', prompt: 'close-up portrait, intimate framing, soft bokeh' },
+    { label: 'Arched back', prompt: 'arched back, head thrown back, sensual display' },
+    { label: 'Hands tracing body', prompt: 'hands tracing own curves, self-touching, sensual' },
+    { label: 'Seductive side-lying', prompt: 'lying on side, one knee raised, seductive look' },
+    { label: 'Pinned against wall', prompt: 'pressed against wall, breathless expression' },
+    { label: 'Presenting', prompt: 'presenting self to camera, fully displayed, exhibitionist' },
+  ],
+  'Explicit Solo': [
+    { label: 'Spread — presenting', prompt: 'legs wide spread, pussy on display, explicit presentation' },
+    { label: 'Fingering self', prompt: 'fingers inside vagina, masturbating' },
+    { label: 'Rubbing clit', prompt: 'rubbing clitoris, fingers on wet pussy, pleasuring self' },
+    { label: 'Using dildo', prompt: 'dildo inserted in pussy, fucking self with toy' },
+    { label: 'Bent over presenting', prompt: 'bent over, ass up face down, ass and pussy presented' },
+    { label: 'Using vibrator', prompt: 'vibrator pressed against pussy, masturbating with toy' },
+    { label: 'Anal toy', prompt: 'butt plug inserted, anal toy, ass play' },
+  ],
+  'Sex Acts': [
+    { label: 'Blowjob', prompt: 'blowjob, cock in mouth, sucking penis, oral sex' },
+    { label: 'Deepthroat', prompt: 'deepthroat, cock buried in throat, gagging' },
+    { label: 'Titjob / Paizuri', prompt: 'titjob, penis between breasts, paizuri, looking up' },
+    { label: 'Handjob', prompt: 'handjob, hand wrapped around erect cock, stroking' },
+    { label: 'Facial cumshot', prompt: 'facial, cum covering face, cumshot, ahegao' },
+    { label: 'Cum on chest', prompt: 'cumshot on breasts, cum dripping down tits' },
+    { label: 'Creampie', prompt: 'creampie, cum dripping from pussy, internal cumshot' },
+    { label: 'Swallowing', prompt: 'open mouth, tongue out, cum in mouth, swallowing' },
+  ],
+  'Explicit Scene': [
+    { label: 'Cowgirl', prompt: 'cowgirl position, riding cock, bouncing on penis' },
+    { label: 'Reverse cowgirl', prompt: 'reverse cowgirl, facing away while riding' },
+    { label: 'Doggy style', prompt: 'doggy style, fucking from behind, cock in pussy' },
+    { label: 'Missionary', prompt: 'missionary position, legs raised and spread, penetrated' },
+    { label: 'Against wall', prompt: 'fucked standing against wall, legs wrapped around' },
+    { label: 'On knees giving BJ', prompt: 'kneeling before cock, giving blowjob, servicing' },
+    { label: 'Anal', prompt: 'anal sex, cock in ass, ass penetration' },
+    { label: 'Prone bone', prompt: 'prone bone, lying flat face-down, penetrated from behind' },
+    { label: 'Spitroast', prompt: 'spitroast, cock in mouth and cock in pussy simultaneously' },
+  ],
+  'Taboo': [
+    { label: 'Teacher scenario', prompt: 'teacher outfit, glasses, classroom, authority figure, taboo' },
+    { label: 'Domestic taboo', prompt: 'home setting, domestic, forbidden family dynamic, taboo' },
+    { label: 'Boss / Secretary', prompt: 'office setting, power dynamic, boss and employee taboo' },
+    { label: 'Nurse fantasy', prompt: 'nurse uniform, white medical outfit, hospital, taboo' },
+    { label: 'French maid', prompt: 'french maid outfit, short skirt, white apron, domestic service' },
+    { label: 'Neighbor fantasy', prompt: 'suburban setting, next-door neighbor, forbidden, taboo' },
+    { label: 'Stepfamily', prompt: 'domestic home, forbidden family dynamic, taboo stepfamily scenario' },
+  ],
+};
+
+const CLOTHING = {
+  'None / Bare': [
+    { label: 'Nude', prompt: 'completely nude, naked, no clothing whatsoever' },
+    { label: 'Topless', prompt: 'topless, bare breasts exposed' },
+    { label: 'Just panties', prompt: 'wearing only panties, topless, underwear only' },
+    { label: 'Just thong', prompt: 'wearing only tiny thong, topless, barely covered' },
+    { label: 'Micro bikini', prompt: 'micro bikini, string bikini, barely covering' },
+  ],
+  'Lingerie': [
+    { label: 'Matching set', prompt: 'matching lingerie set, delicate bra and panties' },
+    { label: 'Corset', prompt: 'corset, waist cinched, elegant lingerie' },
+    { label: 'Sheer babydoll', prompt: 'sheer babydoll nightgown, see-through lingerie' },
+    { label: 'Stockings & garter', prompt: 'silk stockings, garter belt, suspenders, lingerie' },
+    { label: 'Sheer bodysuit', prompt: 'sheer lace bodysuit, see-through, lingerie' },
+    { label: 'Silk slip', prompt: 'silk slip dress, thin straps, elegant lingerie' },
+  ],
+  'Casual': [
+    { label: 'T-shirt & jeans', prompt: 'casual fitted t-shirt and jeans, everyday outfit' },
+    { label: 'Summer dress', prompt: 'light flowy summer dress, casual' },
+    { label: 'Crop top & shorts', prompt: 'crop top and short shorts, casual summer' },
+    { label: 'Oversized shirt', prompt: 'oversized shirt, no pants, casual relaxed' },
+    { label: 'Athletic wear', prompt: 'sports bra and form-fitting leggings, athletic wear' },
+    { label: 'Sundress', prompt: 'floral sundress, delicate, feminine casual' },
+  ],
+  'Smart / Formal': [
+    { label: 'Little black dress', prompt: 'little black dress, form-fitting, elegant LBD' },
+    { label: 'Evening gown', prompt: 'floor-length evening gown, formal, sophisticated' },
+    { label: 'Business suit', prompt: 'tailored business suit, professional, power dressing' },
+    { label: 'Blouse & skirt', prompt: 'silk blouse and pencil skirt, smart professional' },
+    { label: 'Cocktail dress', prompt: 'cocktail dress, semi-formal, stylish' },
+  ],
+  'Custom': [
+    { label: 'Custom clothing...', prompt: '', isCustom: true },
+  ],
+};
+
+const STATES_F = [
+  { label: 'Neutral', prompt: 'neutral expression, composed' },
+  { label: 'Relaxed', prompt: 'relaxed serene expression, soft smile' },
+  { label: 'Seductive', prompt: 'seductive expression, bedroom eyes, sultry look, parted lips' },
+  { label: 'Aroused', prompt: 'visibly aroused, heavy-lidded eyes, flushed cheeks, lips parted' },
+  { label: 'Desperate', prompt: 'desperate needy expression, yearning, begging eyes' },
+  { label: 'Submissive', prompt: 'submissive expression, looking up pleadingly, eager to please' },
+  { label: 'Dominant', prompt: 'dominant confident expression, commanding, in control' },
+  { label: 'Teasing', prompt: 'teasing playful expression, mischievous smile, coy' },
+  { label: 'Post-orgasm', prompt: 'post-orgasm afterglow, flushed, satisfied, blissful' },
+  { label: 'Shy / Blushing', prompt: 'shy expression, cheeks flushed pink, looking away' },
+  { label: 'Ahegao', prompt: 'ahegao expression, eyes rolling back, tongue out, overwhelmed' },
+  { label: 'Crying / Tears', prompt: 'tears streaming down cheeks, emotional, tear-stained' },
+];
+
+const STATES_M = [
+  { label: 'Neutral', prompt: 'neutral expression, composed' },
+  { label: 'Dominant', prompt: 'dominant intense expression, commanding, powerful' },
+  { label: 'Intense', prompt: 'intense focused expression, dark brooding gaze' },
+  { label: 'Gentle', prompt: 'gentle warm expression, caring, tender look' },
+  { label: 'Possessive', prompt: 'possessive expression, protective, claiming' },
+  { label: 'Aroused', prompt: 'aroused expression, heated gaze, jaw tense' },
+  { label: 'Smirking', prompt: 'confident smirk, knowing look, self-assured' },
+  { label: 'Submissive', prompt: 'submissive expression, yielding, pliant' },
+];
+
+const NEG = '(worst quality, low quality:1.4), (deformed, distorted:1.3), bad anatomy, (bad hands:1.3), (malformed hands:1.3), extra fingers, missing fingers, fused fingers, (extra limbs:1.2), mutated hands, blurry, ugly, watermark, text, signature, jpeg artifacts, censored, mosaic, (ai-generated look:1.2), overly perfect skin, studio lighting, fashion editorial';
+
+const MODELS = [
+  { id: 'lustify-sdxl', label: 'Lustify SDXL (default)' },
+  { id: 'hidream-i1-fast', label: 'HiDream I1 Fast' },
+  { id: 'seedream-3.0', label: 'Seedream V5 Lite' },
+  { id: 'seedream-2', label: 'Seedream V4' },
+  { id: 'fluently-xl-final', label: 'Fluently XL' },
+  { id: 'nai-banana-pro', label: 'Nano Banana Pro' },
+];
+
+// ── IndexedDB ──
+class PDB {
+  constructor(){this.db=null;this.ready=this._init()}
+  _init(){return new Promise((res,rej)=>{
+    const r=indexedDB.open('PortraitStudioDB',1);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains('portraits')){
+        const s=db.createObjectStore('portraits',{keyPath:'id',autoIncrement:true});
+        s.createIndex('cid','characterId',{unique:false});
+      }
+    };
+    r.onsuccess=e=>{this.db=e.target.result;res()};
+    r.onerror=rej;
+  })}
+  async add(d){await this.ready;return new Promise((res,rej)=>{
+    const tx=this.db.transaction('portraits','readwrite');
+    const r=tx.objectStore('portraits').add(d);
+    r.onsuccess=()=>res(r.result);r.onerror=rej;
+  })}
+  async forChar(cid){await this.ready;return new Promise((res,rej)=>{
+    const tx=this.db.transaction('portraits','readonly');
+    const r=tx.objectStore('portraits').index('cid').getAll(cid);
+    r.onsuccess=()=>res(r.result.sort((a,b)=>b.createdAt-a.createdAt));
+    r.onerror=rej;
+  })}
+  async get(id){await this.ready;return new Promise((res,rej)=>{
+    const tx=this.db.transaction('portraits','readonly');
+    const r=tx.objectStore('portraits').get(id);
+    r.onsuccess=()=>res(r.result);r.onerror=rej;
+  })}
+  async del(id){await this.ready;return new Promise((res,rej)=>{
+    const tx=this.db.transaction('portraits','readwrite');
+    const r=tx.objectStore('portraits').delete(id);
+    r.onsuccess=res;r.onerror=rej;
+  })}
+  async delForChar(cid){const ps=await this.forChar(cid);for(const p of ps)await this.del(p.id)}
+  async latest(cid){const ps=await this.forChar(cid);return ps.length?ps[0]:null}
+}
+
+// ── LocalStorage ──
+const LS={
+  get(k,d=null){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):d}catch{return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+};
+const getChars=()=>LS.get('ps_chars',[]);
+const saveChars=c=>LS.set('ps_chars',c);
+const getSettings=()=>LS.get('ps_settings',{veniceKey:'',orKey:'',model:'lustify-sdxl'});
+const getPresets=()=>LS.get('ps_presets',[]);
+const savePresets=p=>LS.set('ps_presets',p);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc=s=>s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';
+const imgSrc=b64=>b64.startsWith('/9j/')?`data:image/jpeg;base64,${b64}`:`data:image/png;base64,${b64}`;
+
+// ── App State ──
+const DB=new PDB();
+let curScreen='gallery',curCharId=null,curPortraits=[],curCarIdx=0;
+let activePose=null,activeClothing=null,activeState=null;
+let activeToggles={sheer:false,hardNipples:false,erect:false,holding:false};
+let seedVal='',seedLocked=false;
+let curFsId=null,wizStep=0,wizPortrait=null;
+let gallerySearch='',gallerySort='newest',ctxCharId=null;
+
+// ── Navigation ──
+const SCREEN_IDS={gallery:'scrGallery',character:'scrChar',settings:'scrSettings'};
+function showScreen(name){
+  if(name===curScreen)return;
+  const from=$(SCREEN_IDS[curScreen]),to=$(SCREEN_IDS[name]);
+  if(!from||!to)return;
+  const back=name==='gallery';
+  if(back){
+    from.classList.add('right');
+    to.classList.remove('left');
+  } else {
+    to.style.transition='none';to.classList.remove('right');
+    raf(()=>{to.style.transition='';to.classList.remove('right');from.classList.add('left')});
+  }
+  setTimeout(()=>{
+    if(back){to.classList.remove('left')}
+    else{from.classList.remove('left','right')}
+  },320);
+  curScreen=name;
+  if(name==='gallery')renderGallery();
+  if(name==='settings')syncSettings();
+}
+const $=id=>document.getElementById(id);
+const raf=fn=>requestAnimationFrame(fn);
+
+// ── Toast ──
+let toastTimer=0;
+function toast(msg,dur=2600){
+  const el=$('toast');el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// ── Sheets ──
+function openSheet(id){$(id).classList.add('open');$('ov').classList.add('show')}
+function closeSheet(id){
+  $(id).classList.remove('open');
+  if(!document.querySelector('.sheet.open'))$('ov').classList.remove('show');
+}
+function closeAllSheets(){
+  document.querySelectorAll('.sheet.open').forEach(s=>s.classList.remove('open'));
+  $('ov').classList.remove('show');
+  closeModal('mPreset');closeModal('mDelete');
+}
+function openModal(id){$(id).classList.add('open')}
+function closeModal(id){$(id).classList.remove('open')}
+
+// ── Gallery ──
+async function renderGallery(){
+  const allChars=getChars(),el=$('gCont');
+  const countEl=$('gCount');
+
+  // Update character count
+  if(countEl) countEl.textContent=allChars.length?`${allChars.length}`:'';
+
+  if(!allChars.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">✦</div><h2>No characters yet</h2><p>Tap + to create your first character with AI-generated portraits</p></div>`;
+    return;
+  }
+
+  // Filter by search
+  const q=gallerySearch.trim().toLowerCase();
+  let chars=q?allChars.filter(c=>c.name.toLowerCase().includes(q)||
+    (c.ethnicity||'').toLowerCase().includes(q)||
+    (c.gender||'').toLowerCase().includes(q)):allChars;
+
+  // Sort
+  if(gallerySort==='az') chars=[...chars].sort((a,b)=>a.name.localeCompare(b.name));
+  else if(gallerySort==='oldest') chars=[...chars].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  else chars=[...chars].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)); // newest default (portraits sort applied later async)
+
+  if(!chars.length){
+    el.innerHTML=`<div class="gNoMatch"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg><span>No characters match "<strong>${esc(q)}</strong>"</span></div>`;
+    return;
+  }
+
+  el.innerHTML=`<div class="gGrid">${chars.map(c=>`
+    <div class="card" id="cd-${c.id}" data-id="${c.id}">
+      <div class="card-ph shimmer"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>Loading...</span></div>
+      <div class="card-ov"><div class="card-name">${esc(c.name)}</div><div class="card-role">${[c.age?c.age+' yrs':'',c.ethnicity,c.gender].filter(Boolean).join(' · ')}</div></div>
+    </div>`).join('')}</div>`;
+
+  const portCounts=[];
+  for(const c of chars){
+    const p=await DB.latest(c.id),cnt=(await DB.forChar(c.id)).length;
+    portCounts.push({id:c.id,cnt});
+    const card=$('cd-'+c.id);if(!card)continue;
+    const ph=card.querySelector('.card-ph');
+    if(p&&ph){const img=document.createElement('img');img.className='card-img';img.src=imgSrc(p.imageData);img.alt=c.name;ph.replaceWith(img)}
+    else if(ph){ph.classList.remove('shimmer')}
+    if(cnt>1){const badge=document.createElement('div');badge.className='cnt-badge';badge.innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:11px;height:11px"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>${cnt}`;card.appendChild(badge)}
+
+    // Long-press / hold to open context menu
+    let pressTimer=null,didLongPress=false;
+    card.addEventListener('touchstart',()=>{
+      didLongPress=false;
+      pressTimer=setTimeout(()=>{didLongPress=true;openCtx(c.id,c.name);},520);
+    },{passive:true});
+    card.addEventListener('touchend',()=>clearTimeout(pressTimer),{passive:true});
+    card.addEventListener('touchmove',()=>clearTimeout(pressTimer),{passive:true});
+    card.addEventListener('click',()=>{if(!didLongPress)openChar(c.id);});
+    // Right-click on desktop
+    card.addEventListener('contextmenu',e=>{e.preventDefault();openCtx(c.id,c.name);});
+  }
+
+  // Re-sort by portrait count after async load
+  if(gallerySort==='portraits'){
+    const grid=el.querySelector('.gGrid');if(!grid)return;
+    const sorted=[...portCounts].sort((a,b)=>b.cnt-a.cnt);
+    sorted.forEach(({id})=>{const card=$('cd-'+id);if(card)grid.appendChild(card);});
+  }
+}
+
+// ── Gallery helpers ──
+function onGallerySearch(v){
+  gallerySearch=v;
+  renderGallery();
+}
+
+function cycleSort(){
+  const orders=['newest','oldest','az','portraits'];
+  gallerySort=orders[(orders.indexOf(gallerySort)+1)%orders.length];
+  updateSortBtn();
+  renderGallery();
+}
+
+function updateSortBtn(){
+  const btn=$('gSortBtn');if(!btn)return;
+  const isDefault=gallerySort==='newest';
+  btn.classList.toggle('sorted',!isDefault);
+  const labels={newest:'Sort: Newest first',oldest:'Sort: Oldest first',az:'Sort: A–Z',portraits:'Sort: Most portraits'};
+  btn.setAttribute('aria-label',labels[gallerySort]);
+  const icons={
+    newest:'<path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M6 12h12M10 17h4"/>',
+    oldest:'<path stroke-linecap="round" stroke-linejoin="round" d="M3 17h18M6 12h12M10 7h4"/>',
+    az:'<path stroke-linecap="round" stroke-linejoin="round" d="M3 7h4m0 0l-2 5h4l-2-5zm10 0h6M13 12h6M15 17h4"/>',
+    portraits:'<path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>'
+  };
+  btn.innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">${icons[gallerySort]}</svg>`;
+}
+
+function openCtx(id,name){
+  ctxCharId=id;
+  const el=$('ctxCharName');if(el)el.textContent=name;
+  openSheet('ctxMenu');
+}
+
+function ctxOpen(){
+  closeAllSheets();
+  if(ctxCharId)openChar(ctxCharId);
+}
+
+function ctxDelete(){
+  closeAllSheets();
+  if(!ctxCharId)return;
+  curCharId=ctxCharId;
+  openModal('mDelete');
+}
+
+// ── Character Detail ──
+async function openChar(id){
+  curCharId=id;
+  activePose=null;activeClothing=null;activeState=null;
+  activeToggles={sheer:false,hardNipples:false,erect:false,holding:false};
+  if(!seedLocked)seedVal='';
+  curPortraits=await DB.forChar(id);curCarIdx=0;
+  const char=getChars().find(c=>c.id===id);if(!char)return;
+  showScreen('character');
+  renderCarousel(char);
+  renderDetail(char);
+  loadFaceRefThumb(char);
+}
+
+function renderCarousel(char){
+  const crsl=$('crsl'),dots=$('dots');
+  if(!curPortraits.length){
+    crsl.innerHTML=`<div class="crslSlide"><div class="crslPh"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><p>No portraits yet — generate one below</p></div></div>`;
+    dots.innerHTML='';return;
+  }
+  // Pin face reference portrait first
+  const faceRefId=char.faceRefPortraitId;
+  const sorted=[...curPortraits].sort((a,b)=>{
+    if(a.id===faceRefId)return -1;
+    if(b.id===faceRefId)return 1;
+    return 0;
+  });
+  crsl.innerHTML=sorted.map((p,i)=>{
+    const isRef=p.id===faceRefId;
+    return `<div class="crslSlide" onclick="openFS(${p.id})" style="position:relative">
+      <img src="${imgSrc(p.imageData)}" loading="lazy" alt="Portrait ${i+1}">
+      ${isRef?`<div class="faceRefBadge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>Face Reference</div>`:''}
+    </div>`;
+  }).join('');
+  dots.innerHTML=sorted.map((_,i)=>`<div class="dot${i===0?' on':''}"></div>`).join('');
+  crsl.onscroll=null;
+  crsl.addEventListener('scroll',()=>{
+    const i=Math.round(crsl.scrollLeft/window.innerWidth);
+    if(i!==curCarIdx){curCarIdx=i;document.querySelectorAll('#dots .dot').forEach((d,j)=>d.classList.toggle('on',j===i))}
+  },{passive:true});
+}
+
+function renderDetail(char){
+  const body=$('dBody');
+  const fem=char.gender==='Female'||char.gender==='Non-binary';
+  const build=[char.build?.bodyType,fem?char.build?.breastSize:null,char.build?.height].filter(Boolean).join(', ');
+  const face=[char.face?.hairColor,char.face?.hairLength,char.face?.eyeColor?char.face.eyeColor+' eyes':null].filter(Boolean).join(', ');
+  const togsHtml=fem?`
+    <div class="togs">
+      <button class="tog${activeToggles.sheer?' on':''}" onclick="togOpt('sheer',this)">Sheer</button>
+      <button class="tog${activeToggles.hardNipples?' on':''}" onclick="togOpt('hardNipples',this)">Hard nipples</button>
+    </div>`:`
+    <div class="togs">
+      <button class="tog${activeToggles.erect?' on':''}" onclick="togOpt('erect',this)">Erect</button>
+      <button class="tog${activeToggles.holding?' on':''}" onclick="togOpt('holding',this)">Holding</button>
+    </div>`;
+  body.innerHTML=`
+    <div class="dNR"><div class="dName">${esc(char.name)}</div></div>
+    <div class="dMeta">${[char.age?char.age+' yrs':'',char.ethnicity,char.gender].filter(Boolean).join(' · ')}</div>
+    <div class="infoCard">
+      ${build?`<div class="infoRow"><span class="iKey">Build</span><span class="iVal">${esc(build)}</span></div>`:''}
+      ${face?`<div class="infoRow"><span class="iKey">Look</span><span class="iVal">${esc(face)}</span></div>`:''}
+      ${char.personality?.traits?.length?`<div class="infoRow"><span class="iKey">Traits</span><span class="iVal">${esc(char.personality.traits.join(', '))}</span></div>`:''}
+      ${char.personality?.notes?`<div class="infoRow"><span class="iKey">Notes</span><span class="iVal">${esc(char.personality.notes)}</span></div>`:''}
+    </div>
+    <div class="sHead">Generate Portrait</div>
+    ${char.faceRefPortraitId?`
+    <div class="faceRefCard" id="faceRefCard">
+      <div class="faceRefThumbPh" id="faceRefThumb">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:20px;height:20px;color:var(--acc);opacity:.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      </div>
+      <div class="faceRefInfo">
+        <div class="faceRefLabel">★ Face Reference Active</div>
+        <div class="faceRefDesc" id="faceRefDesc">${esc(char.facePrompt||'Seed locked — face consistency active')}</div>
+      </div>
+      <div class="faceRefActions">
+        <button class="seedBtn" style="font-size:11px;padding:7px 10px" onclick="clearFaceRef()">Clear</button>
+      </div>
+    </div>`:''}
+    <div class="pickerRow">
+      <button class="pickerBtn" onclick="openPose()"><div><span class="pbLbl">Pose</span><span class="pbVal" id="pvPose">${activePose?esc(activePose.label):'Choose pose...'}</span></div><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+    </div>
+    <div class="pickerRow">
+      <button class="pickerBtn" onclick="openClothing()"><div><span class="pbLbl">Clothing</span><span class="pbVal" id="pvCloth">${activeClothing?esc(activeClothing.label):'Choose clothing...'}</span></div><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+      <button class="pickerBtn" onclick="openState()" style="flex:0.75"><div><span class="pbLbl">State</span><span class="pbVal" id="pvState">${activeState?esc(activeState.label):'Any'}</span></div><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+    </div>
+    ${togsHtml}
+    <div class="seedWrap${seedLocked?' seedLocked':''}" id="seedWrap">
+      <input type="number" class="seedInp" id="seedInp" placeholder="Seed (random)" value="${seedVal}" oninput="seedVal=this.value">
+      <button class="seedBtn${seedLocked?' locked':''}" id="seedLockBtn" onclick="togSeedLock()">${seedLocked?'🔒 Locked':'🔓 Lock'}</button>
+      <button class="seedBtn" onclick="clearSeed()">Clear</button>
+    </div>
+    <div class="sHead">Presets</div>
+    <div class="presetScroll" id="presetScroll">${renderPresets()}</div>
+    <div class="promptSt" id="promptSt"></div>
+    <button class="genBtn" id="genBtn" onclick="genPortrait()">
+      <span class="genBtnTxt">✦ Generate Portrait</span>
+      <div class="genBtnLoad"><div class="spinRing"></div><span style="font-family:var(--serif);font-size:15px">Generating...</span></div>
+    </button>
+    <div class="dangerRow"><button class="btn btnDanger" onclick="openModal('mDelete')">Delete Character</button></div>`;
+}
+
+// ── Pickers ──
+function openPose(){
+  let h='';
+  const cats=Object.keys(POSES);
+  cats.forEach((cat,ci)=>{
+    h+=`<div class="pCat">${cat}</div>`;
+    POSES[cat].forEach((p,i)=>{
+      const sel=activePose&&activePose.label===p.label;
+      h+=`<div class="pOpt${sel?' sel':''}" onclick="selPose(${ci},${i})"><div class="pOL">${p.label}</div><div class="pChk"></div></div>`;
+    });
+  });
+  $('poseBody').innerHTML=h;openSheet('shPose');
+}
+function selPose(ci,i){const cat=Object.keys(POSES)[ci];activePose=POSES[cat][i];closeSheet('shPose');const e=$('pvPose');if(e)e.textContent=activePose.label}
+
+function openClothing(){
+  let h='';
+  const cats=Object.keys(CLOTHING);
+  cats.forEach((cat,ci)=>{
+    h+=`<div class="pCat">${cat}</div>`;
+    CLOTHING[cat].forEach((item,i)=>{
+      const sel=activeClothing&&activeClothing.label===item.label;
+      h+=`<div class="pOpt${sel?' sel':''}" onclick="selCloth(${ci},${i})"><div class="pOL">${item.label}</div><div class="pChk"></div></div>`;
+    });
+  });
+  $('clothBody').innerHTML=h;
+  $('ccWrap').classList.remove('show');
+  openSheet('shCloth');
+}
+function selCloth(ci,i){
+  const cat=Object.keys(CLOTHING)[ci];
+  const item=CLOTHING[cat][i];
+  if(item.isCustom){$('ccWrap').classList.add('show');document.querySelectorAll('#clothBody .pOpt').forEach(e=>e.classList.remove('sel'));event.currentTarget.classList.add('sel');return}
+  activeClothing={label:item.label,prompt:item.prompt};$('ccWrap').classList.remove('show');
+  const e=$('pvCloth');if(e)e.textContent=activeClothing.label;closeSheet('shCloth');
+}
+function confirmCloth(){
+  const v=$('ccInp').value.trim();
+  if(v){activeClothing={label:'Custom',prompt:v,isCustom:true};const e=$('pvCloth');if(e)e.textContent='Custom'}
+  closeSheet('shCloth');
+}
+
+function openState(){
+  const char=getChars().find(c=>c.id===curCharId);
+  const fem=!char||char.gender==='Female'||char.gender==='Non-binary';
+  const list=fem?STATES_F:STATES_M;
+  $('stateBody').innerHTML=list.map((s,i)=>{
+    const sel=activeState&&activeState.label===s.label;
+    return `<div class="pOpt${sel?' sel':''}" onclick="selState(${i})"><div class="pOL">${s.label}</div><div class="pChk"></div></div>`;
+  }).join('');
+  openSheet('shState');
+}
+function selState(i){
+  const char=getChars().find(c=>c.id===curCharId);
+  const fem=!char||char.gender==='Female'||char.gender==='Non-binary';
+  const list=fem?STATES_F:STATES_M;
+  activeState=list[i];
+  const e=$('pvState');if(e)e.textContent=activeState.label;closeSheet('shState');
+}
+
+// ── Toggles & Seed ──
+function togOpt(k,btn){activeToggles[k]=!activeToggles[k];btn.classList.toggle('on',activeToggles[k])}
+function togSeedLock(){
+  if(!seedLocked&&!seedVal){toast('Enter a seed first');return}
+  seedLocked=!seedLocked;
+  const btn=$('seedLockBtn'),wrap=$('seedWrap');
+  if(btn){btn.textContent=seedLocked?'🔒 Locked':'🔓 Lock';btn.classList.toggle('locked',seedLocked)}
+  if(wrap)wrap.classList.toggle('seedLocked',seedLocked);
+}
+function clearSeed(){
+  seedVal='';seedLocked=false;
+  const i=$('seedInp'),b=$('seedLockBtn'),w=$('seedWrap');
+  if(i)i.value='';if(b){b.textContent='🔓 Lock';b.classList.remove('locked')}if(w)w.classList.remove('seedLocked');
+}
+
+// ── Presets ──
+function renderPresets(){
+  const ps=getPresets();
+  return `<div class="ppill save" onclick="openModal('mPreset')">✦ Save preset</div>`
+    +ps.map(p=>`<div class="ppill" onclick="applyPreset('${p.id}')">${esc(p.name)}<span class="ppDel" onclick="delPreset(event,'${p.id}')">×</span></div>`).join('');
+}
+function confirmSavePreset(){
+  const name=$('pNameInp').value.trim();if(!name){toast('Enter a name');return}
+  const ps=getPresets();
+  ps.push({id:uid(),name,pose:activePose,clothing:activeClothing,state:activeState,toggles:{...activeToggles},seed:seedLocked?seedVal:null});
+  savePresets(ps);closeModal('mPreset');
+  const el=$('presetScroll');if(el)el.innerHTML=renderPresets();
+  toast('Preset saved');
+}
+function applyPreset(id){
+  const p=getPresets().find(p=>p.id===id);if(!p)return;
+  if(p.pose){activePose=p.pose;const e=$('pvPose');if(e)e.textContent=p.pose.label}
+  if(p.clothing){activeClothing=p.clothing;const e=$('pvCloth');if(e)e.textContent=p.clothing.label}
+  if(p.state){activeState=p.state;const e=$('pvState');if(e)e.textContent=p.state.label}
+  if(p.toggles)activeToggles={...p.toggles};
+  if(p.seed){seedVal=p.seed;seedLocked=true;const i=$('seedInp');if(i)i.value=seedVal}
+  const char=getChars().find(c=>c.id===curCharId);if(char)renderDetail(char);
+  toast('Preset applied');
+}
+function delPreset(e,id){
+  e.stopPropagation();savePresets(getPresets().filter(p=>p.id!==id));
+  const el=$('presetScroll');if(el)el.innerHTML=renderPresets();toast('Preset deleted');
+}
+
+// ── Prompt Building ──
+function buildFallback(char,pose,clothing,state,toggles){
+  const fem=char.gender==='Female'||char.gender==='Non-binary';
+  const parts=[];
+
+  // 1. Quality anchors
+  parts.push('score_9, score_8_up, score_7_up, masterpiece, (photorealistic:1.3), ultra detailed, 8k');
+
+  // 2. Pose FIRST — each tag weighted individually (SD syntax requires no commas inside parentheses)
+  if(pose){
+    const poseTags=pose.prompt.split(',').map(t=>`(${t.trim()}:1.15)`).join(', ');
+    parts.push(poseTags);
+  }
+
+  // 3. Camera / framing
+  if(fem)parts.push('facing camera, front view, looking at viewer');
+
+  // 4. Subject identity
+  const ethMap={
+    // Europe
+    'British / English':'british','Irish':'irish','Scottish / Welsh':'scottish',
+    'French':'french','German / Austrian / Swiss':'german','Italian':'italian',
+    'Spanish / Catalan':'spanish','Portuguese':'portuguese',
+    'Dutch / Belgian / Flemish':'dutch, flemish',
+    'Scandinavian / Nordic':'scandinavian, nordic',
+    'Polish / Czech / Slovak':'slavic, eastern european',
+    'Russian / Ukrainian / Belarusian':'russian, slavic',
+    'Greek / Cypriot':'greek, mediterranean',
+    'Romanian / Moldovan':'romanian, eastern european',
+    'Hungarian / Serbian / Croatian':'eastern european',
+    'Finnish / Estonian / Latvian / Lithuanian':'northern european',
+    'Jewish / Ashkenazi':'ashkenazi jewish, eastern european',
+    // East Asia
+    'Chinese / Han':'chinese, east asian','Japanese':'japanese, east asian',
+    'Korean':'korean, east asian','Taiwanese':'taiwanese, east asian',
+    'Mongolian':'mongolian','Tibetan':'tibetan',
+    // Southeast Asia
+    'Thai':'thai, southeast asian','Vietnamese':'vietnamese, southeast asian',
+    'Filipino / Filipina':'filipino, filipina, southeast asian',
+    'Indonesian / Javanese / Balinese':'indonesian, southeast asian',
+    'Malaysian / Singaporean':'malaysian, southeast asian',
+    'Cambodian / Khmer':'cambodian, southeast asian',
+    'Burmese / Myanmar':'burmese, southeast asian','Laotian':'laotian, southeast asian',
+    // South Asia
+    'Indian / North Indian':'indian, north indian, south asian',
+    'Indian / South Indian / Tamil':'south indian, tamil, dravidian',
+    'Indian / Bengali':'bengali, indian, south asian',
+    'Pakistani / Punjabi':'pakistani, punjabi, south asian',
+    'Bangladeshi':'bangladeshi, south asian',
+    'Sri Lankan / Sinhalese':'sri lankan, south asian','Nepali':'nepali, south asian',
+    // Middle East & Central Asia
+    'Arab / Egyptian':'egyptian, arab, middle eastern',
+    'Arab / Levantine (Syrian, Lebanese, Jordanian)':'levantine arab, middle eastern',
+    'Arab / Gulf (Emirati, Saudi, Kuwaiti)':'gulf arab, middle eastern',
+    'Arab / Moroccan / Maghrebi':'moroccan, north african, arab',
+    'Iranian / Persian':'persian, iranian, middle eastern',
+    'Turkish':'turkish, anatolian','Kurdish':'kurdish, middle eastern',
+    'Israeli / Mizrahi Jewish':'mizrahi jewish, middle eastern',
+    'Afghan / Pashtun':'afghan, pashtun, central asian',
+    'Uzbek / Kazakh / Kyrgyz':'central asian, uzbek',
+    // Sub-Saharan Africa
+    'West African / Nigerian / Ghanaian':'west african, nigerian',
+    'East African / Kenyan / Ethiopian':'east african, ethiopian',
+    'Somali':'somali, east african',
+    'South African / Zulu / Xhosa':'south african, zulu',
+    'Congolese / Central African':'central african, congolese',
+    'Senegalese / Malian':'west african, senegalese',
+    // Americas
+    'African American / Black American':'black american, african american',
+    'Hispanic / Mexican':'hispanic, mexican, latina',
+    'Hispanic / Colombian / Venezuelan':'hispanic, colombian, latina',
+    'Hispanic / Argentinian / Chilean':'hispanic, argentinian, latina',
+    'Brazilian / Afro-Brazilian':'afro-brazilian, black brazilian',
+    'Brazilian / Euro-Brazilian':'brazilian, euro-brazilian',
+    'Indigenous / Native American':'native american, indigenous',
+    'Caribbean / Afro-Caribbean':'afro-caribbean, caribbean',
+    // Pacific & Oceania
+    'Māori / Pacific Islander':'maori, pacific islander',
+    'Aboriginal Australian':'aboriginal australian',
+    'Hawaiian / Polynesian':'hawaiian, polynesian',
+    // Mixed & Other
+    'Mixed — Black & White':'mixed race, black and white biracial',
+    'Mixed — Asian & White':'mixed race, half asian, eurasian',
+    'Mixed — Asian & Black':'mixed race, afro-asian',
+    'Mixed — Hispanic & White':'mixed race, hispanic and white',
+    'Mixed — Multiple':'mixed race, multiracial',
+    'Other / Unspecified':'',
+    // Legacy keys (kept for backwards compatibility with old saves)
+    'Caucasian / White':'caucasian','East Asian':'east asian',
+    'South Asian':'south asian, indian','Southeast Asian':'southeast asian',
+    'Black / African':'black','Hispanic / Latina':'hispanic, latina',
+    'Middle Eastern':'middle eastern','Mixed / Multiracial':'mixed race',
+  };
+  const eth=ethMap[char.ethnicity]||'';
+  parts.push(`${eth} ${fem?'woman':'man'}`.trim());
+  if(char.age)parts.push(char.age+' years old');
+
+  // Skin tone derived from ethnicity — explicit complexion anchors improve consistency
+  const skinToneMap={
+    'British / English':'fair skin, light complexion',
+    'Irish':'fair skin, pale complexion',
+    'Scottish / Welsh':'fair skin, pale complexion',
+    'French':'fair skin, light complexion',
+    'German / Austrian / Swiss':'fair skin, light complexion',
+    'Italian':'olive skin, mediterranean complexion',
+    'Spanish / Catalan':'olive skin, mediterranean complexion',
+    'Portuguese':'olive skin, mediterranean complexion',
+    'Dutch / Belgian / Flemish':'fair skin, light complexion',
+    'Scandinavian / Nordic':'very fair skin, pale complexion',
+    'Polish / Czech / Slovak':'fair skin, light complexion',
+    'Russian / Ukrainian / Belarusian':'fair skin, light complexion',
+    'Greek / Cypriot':'olive skin, mediterranean complexion',
+    'Romanian / Moldovan':'fair skin, light complexion',
+    'Jewish / Ashkenazi':'fair skin, light complexion',
+    'Chinese / Han':'light skin, fair east asian complexion',
+    'Japanese':'light skin, fair east asian complexion',
+    'Korean':'light skin, fair east asian complexion',
+    'Taiwanese':'light skin, fair east asian complexion',
+    'Thai':'light brown skin, warm southeast asian complexion',
+    'Vietnamese':'light brown skin, warm southeast asian complexion',
+    'Filipino / Filipina':'light brown skin, warm complexion',
+    'Indonesian / Javanese / Balinese':'warm brown skin, southeast asian complexion',
+    'Malaysian / Singaporean':'light brown skin, warm complexion',
+    'Indian / North Indian':'warm brown skin, south asian complexion',
+    'Indian / South Indian / Tamil':'dark brown skin, deep south asian complexion',
+    'Indian / Bengali':'warm brown skin, south asian complexion',
+    'Pakistani / Punjabi':'warm brown skin, south asian complexion',
+    'Sri Lankan / Sinhalese':'dark brown skin, south asian complexion',
+    'Arab / Egyptian':'olive brown skin, middle eastern complexion',
+    'Arab / Levantine (Syrian, Lebanese, Jordanian)':'olive skin, light middle eastern complexion',
+    'Arab / Gulf (Emirati, Saudi, Kuwaiti)':'olive brown skin, middle eastern complexion',
+    'Arab / Moroccan / Maghrebi':'olive brown skin, north african complexion',
+    'Iranian / Persian':'olive skin, medium middle eastern complexion',
+    'Turkish':'olive skin, mediterranean-middle eastern complexion',
+    'Hispanic / Mexican':'olive skin, warm latin complexion',
+    'Hispanic / Colombian / Venezuelan':'olive skin, warm latin complexion',
+    'Hispanic / Argentinian / Chilean':'olive skin, light latin complexion',
+    'Brazilian / Afro-Brazilian':'dark brown skin, deep complexion',
+    'Brazilian / Euro-Brazilian':'olive skin, warm complexion',
+    'African American / Black American':'dark brown skin, deep complexion',
+    'West African / Nigerian / Ghanaian':'very dark skin, deep brown complexion',
+    'East African / Kenyan / Ethiopian':'dark brown skin, deep complexion',
+    'Somali':'dark brown skin, deep complexion',
+    'South African / Zulu / Xhosa':'dark brown skin, deep complexion',
+    'Caribbean / Afro-Caribbean':'dark brown skin, deep complexion',
+    'Mixed — Black & White':'light brown skin, mixed complexion',
+    'Mixed — Asian & White':'light skin, mixed complexion',
+    'Mixed — Hispanic & White':'olive skin, mixed complexion',
+  };
+  const skinTone=skinToneMap[char.ethnicity]||'';
+  if(skinTone)parts.push(skinTone);
+
+  // 5. Physical — face & hair
+  if(char.face){
+    const f=char.face;
+    // Combine hair into a single weighted group for stronger adherence
+    const hairParts=[f.hairColor,f.hairLength,f.hairStyle].filter(Boolean);
+    if(hairParts.length)parts.push(`(${hairParts.join(', ')}:1.1)`);
+    // Weight identity-critical face tags
+    if(f.faceShape)parts.push(`(${f.faceShape}:1.1)`);
+    if(f.eyeColor) parts.push(`(${f.eyeColor}:1.1)`);
+    // Features: only include if it looks like tag-style input (not a long sentence)
+    if(f.features){const feat=f.features.trim();if(feat&&feat.length<80)parts.push(feat);}
+  }
+  if(char.build){
+    if(char.build.bodyType)parts.push(char.build.bodyType.toLowerCase());
+    if(fem&&char.build.breastSize)parts.push(`(${char.build.breastSize.toLowerCase()}:1.1)`);
+    if(char.build.height){
+      const h=char.build.height;
+      if(h.startsWith('Petite'))parts.push('very short stature, petite height');
+      else if(h.startsWith('Short'))parts.push('short stature');
+      else if(h.startsWith('Very'))parts.push('very tall stature');
+      else if(h.startsWith('Tall'))parts.push('tall stature, long legs');
+      // Average: no tag — SD default
+    }
+  }
+
+  // 6. Clothing
+  if(clothing)parts.push(clothing.prompt);
+
+  // 7. State / expression
+  if(state)parts.push(state.prompt);
+
+  // 8. Personality → visual body language / demeanor
+  if(char.personality?.traits?.length){
+    const traitTagMap={
+      confident:  'confident expression, self-assured look',
+      mysterious: 'mysterious gaze, enigmatic expression',
+      playful:    'playful smile, mischievous look',
+      intelligent:'intelligent expression, thoughtful gaze',
+      caring:     'warm expression, gentle smile',
+      fierce:     'fierce expression, intense stare',
+      gentle:     'gentle expression, soft demeanor',
+      dominant:   'dominant posture, commanding presence',
+      submissive: 'timid posture, yielding expression',
+      witty:      'amused smirk, bright eyes',
+      damaged:    'melancholic expression, haunted look',
+      ambitious:  'determined expression, focused gaze',
+    };
+    const traitTags=char.personality.traits.map(t=>traitTagMap[t]).filter(Boolean).join(', ');
+    if(traitTags)parts.push(traitTags);
+  }
+
+  // 9. Modifiers
+  if(fem){
+    if(toggles.sheer)parts.push('sheer fabric, see-through material');
+    if(toggles.hardNipples)parts.push('hard nipples, erect nipples');
+    if(clothing&&(clothing.label==='Nude'||clothing.label==='Topless'))parts.push('breasts visible, bare breasts');
+  }else{
+    if(toggles.erect)parts.push('erect penis, hard cock');
+    if(toggles.holding)parts.push('holding penis, hand on cock');
+  }
+
+  parts.push('solo, beautiful lighting, professional photography, high resolution');
+  return parts.filter(Boolean).join(', ');
+}
+
+async function buildPromptOR(char,pose,clothing,state,toggles,orKey){
+  const fem=char.gender==='Female'||char.gender==='Non-binary';
+  const sys=`You are a Stable Diffusion prompt engineer. Given character details, output ONLY a comma-separated SD tag list. Rules: 1) Start with quality tags: score_9, score_8_up, score_7_up, masterpiece, (photorealistic:1.3), ultra detailed, 8k. 2) IMMEDIATELY after quality tags, add the POSE tags — each individual tag wrapped separately in weight brackets like (tag1:1.15), (tag2:1.15) — never put multiple comma-separated tags inside a single bracket pair. 3) Then add camera angle: ${fem?'facing camera, front view, looking at viewer':'facing camera, looking at viewer'}. 4) Then character physical description — ethnicity, skin tone, age, body. 5) For face and hair: weight identity-critical tags — combine hair color+length+style into one group (hair color, length, style:1.1), wrap face shape and eye color individually at (tag:1.1). 6) If breast size is provided, wrap it at (breast size tag:1.1). 7) Then clothing. 8) Then expression/state. 9) End with: solo, beautiful lighting, professional photography. No sentences, no explanation, just comma-separated tags.`;
+  const personalityStr=char.personality?.traits?.length
+    ?`${char.personality.traits.join(', ')}${char.personality?.notes?`; ${char.personality.notes}`:''}`
+    :(char.personality?.notes||'');
+  const usr=`Character: ${JSON.stringify({name:char.name,gender:char.gender,age:char.age,ethnicity:char.ethnicity,build:char.build,face:char.face})}
+Pose (MUST be second after quality tags, weighted): ${pose?pose.prompt:'standing neutral'}
+Clothing: ${clothing?clothing.prompt:'tasteful default'}
+Expression: ${state?state.prompt:'neutral'}
+${personalityStr?`Personality (translate to visible expression/posture/demeanor SD tags): ${personalityStr}`:''}
+${fem&&toggles.hardNipples?'Add: hard nipples, erect nipples':''}
+${fem&&toggles.sheer?'Add: sheer fabric, see-through':''}
+${!fem&&toggles.erect?'Add: erect penis':''}
+${fem&&clothing&&(clothing.label==='Nude'||clothing.label==='Topless')?'Add: breasts visible, bare breasts':''}`.trim();
+  const resp=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+orKey},
+    body:JSON.stringify({model:'deepseek/deepseek-v3-0324',messages:[{role:'system',content:sys},{role:'user',content:usr}],stream:true,max_tokens:600})
+  });
+  if(!resp.ok)throw new Error('OR '+resp.status);
+  const reader=resp.body.getReader(),dec=new TextDecoder();
+  let result='';
+  while(true){
+    const{done,value}=await reader.read();if(done)break;
+    for(const line of dec.decode(value).split('\n')){
+      if(line.startsWith('data: ')&&line!=='data: [DONE]'){
+        try{result+=(JSON.parse(line.slice(6)).choices?.[0]?.delta?.content||'')}catch{}
+      }
+    }
+  }
+  return result.trim();
+}
+
+async function expandPromptOR(basePrompt,orKey){
+  const sys=`You are a Stable Diffusion prompt engineer. You will receive an SD tag prompt. Expand and improve it — add more specific detail to the physical description, ensure proper SD weighting syntax, and improve tag variety. Preserve all existing tags and their weights. Output ONLY the improved comma-separated tag list. No explanation.`;
+  const usr=`Expand this SD prompt: ${basePrompt}`;
+  const resp=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+orKey},
+    body:JSON.stringify({model:'deepseek/deepseek-v3-0324',messages:[{role:'system',content:sys},{role:'user',content:usr}],stream:true,max_tokens:600})
+  });
+  if(!resp.ok)throw new Error('OR '+resp.status);
+  const reader=resp.body.getReader(),dec=new TextDecoder();
+  let result='';
+  while(true){
+    const{done,value}=await reader.read();if(done)break;
+    for(const line of dec.decode(value).split('\n')){
+      if(line.startsWith('data: ')&&line!=='data: [DONE]'){
+        try{result+=(JSON.parse(line.slice(6)).choices?.[0]?.delta?.content||'')}catch{}
+      }
+    }
+  }
+  return result.trim()||basePrompt;
+}
+
+async function buildPrompt(char,pose,clothing,state,toggles,orKey){
+  // Stage 1: Always build a strong base prompt
+  let prompt=buildFallback(char,pose,clothing,state,toggles);
+  // Stage 2: If OpenRouter available, expand/polish the base prompt with AI
+  if(orKey){
+    try{prompt=await expandPromptOR(prompt,orKey)}
+    catch(e){console.warn('OR expansion failed, using base prompt:',e)}
+  }
+  // Inject face reference after quality anchors (not before them) so score_9 stays first
+  if(char.facePrompt){
+    const qualityAnchor='score_9, score_8_up, score_7_up, masterpiece, (photorealistic:1.3), ultra detailed, 8k';
+    if(prompt.includes(qualityAnchor)){
+      prompt=prompt.replace(qualityAnchor,`${qualityAnchor}, (${char.facePrompt}:1.2)`);
+    } else {
+      prompt=`(${char.facePrompt}:1.2), `+prompt;
+    }
+  }
+  return prompt;
+}
+
+// ── Venice API ──
+function isBlackImage(b64){
+  try{
+    const bin=atob(b64.slice(0,2048));
+    let zeros=0;
+    for(let i=0;i<bin.length;i++){if(bin.charCodeAt(i)===0)zeros++}
+    const ratio=zeros/bin.length;
+    return {black:ratio>0.92,ratio};
+  }catch{return {black:false,ratio:0}}
+}
+
+async function callVenice(prompt,seed,model,key,onStage,_retry=false){
+  onStage&&onStage('queued',_retry?'Retrying…':'Queued — waiting for Venice…');
+  const t0=Date.now();
+  const reqModel=model||'lustify-sdxl';
+  _genLogLine(`--- Venice request ${_retry?'#2 (retry)':'#1'} ---`);
+  _genLogLine(`model=${reqModel} | seed=${seed} | width=832 | height=1216 | steps=30 | cfg=7.5 | safe_mode=false`);
+  const resp=await fetch('https://api.venice.ai/api/v1/image/generate',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({model:reqModel,prompt,negative_prompt:NEG,width:832,height:1216,steps:30,cfg_scale:7.5,seed,safe_mode:false,return_binary:false})
+  });
+  const elapsed=((Date.now()-t0)/1000).toFixed(1);
+  _genLogLine(`HTTP ${resp.status} ${resp.statusText} in ${elapsed}s`);
+  onStage&&onStage('decoding','Decoding image…');
+  if(!resp.ok){
+    const t=await resp.text();
+    _genLogLine(`Venice error body: ${t.slice(0,500)}`);
+    throw new Error(`Venice ${resp.status}: ${t}`);
+  }
+  const d=await resp.json();
+  const timing=d.timing;
+  _genLogLine(`Response top-level keys: [${Object.keys(d).join(', ')}]`);
+  _genLogLine(`metadata: ${JSON.stringify(d.metadata??null)}`);
+  _genLogLine(`timing: queue=${timing?.inferenceQueueTime??'?'}ms | inference=${timing?.inferenceDuration??'?'}ms`);
+  // Log any unexpected top-level fields (e.g. nsfw flags, warnings)
+  const extraKeys=Object.keys(d).filter(k=>!['images','data','timing','metadata','id','model'].includes(k));
+  if(extraKeys.length)_genLogLine(`extra fields: ${extraKeys.map(k=>`${k}=${JSON.stringify(d[k])}`).join(' | ')}`);
+  let b64=null,imgSrcLabel='';
+  if(d.images?.[0]){
+    const i=d.images[0];
+    imgSrcLabel=`d.images[0] (type=${typeof i}, keys=${typeof i==='object'?Object.keys(i).join(','):'n/a'})`;
+    b64=typeof i==='string'?i:i.url||i.b64_json;
+  } else if(d.data?.[0]){
+    const i=d.data[0];
+    imgSrcLabel=`d.data[0] (keys=${typeof i==='object'?Object.keys(i).join(','):'n/a'})`;
+    b64=i.b64_json||i.url;
+  } else {
+    imgSrcLabel='none';
+    _genLogLine(`NO IMAGE DATA — all top-level keys: ${Object.keys(d).join(', ')}`);
+  }
+  _genLogLine(`image source: ${imgSrcLabel}`);
+  if(!b64)throw new Error('Unexpected Venice response');
+  b64=b64.replace(/^data:image\/\w+;base64,/,'');
+  _genLogLine(`b64 length: ${b64.length} chars (~${Math.round(b64.length*0.75/1024)}KB decoded)`);
+  // Black image detection — auto-retry once with a fresh seed
+  const {black,ratio}=isBlackImage(b64);
+  _genLogLine(`black image check: ${(ratio*100).toFixed(1)}% zero-bytes in first 2KB → ${black?'BLACK (threshold >92%)':'OK'}`);
+  if(black){
+    if(!_retry){
+      const newSeed=Math.floor(Math.random()*999999999);
+      _genLogLine(`black detected — retrying with seed ${newSeed}`);
+      onStage&&onStage('queued','Black image detected — retrying with new seed…');
+      return callVenice(prompt,newSeed,model,key,onStage,true);
+    }
+    _genLogLine('black detected on retry — aborting');
+    throw new Error('Black image returned twice — model may be overloaded, try again shortly');
+  }
+  const inferMs=timing?.inferenceDuration;
+  const queueMs=timing?.inferenceQueueTime;
+  const doneMsg=inferMs
+    ?`✓ Done in ${elapsed}s (queue ${(queueMs/1000).toFixed(1)}s, render ${(inferMs/1000).toFixed(1)}s)`
+    :`✓ Done in ${elapsed}s`;
+  onStage&&onStage('done',doneMsg);
+  const returnedSeed=d.metadata?.seed??seed;
+  _genLogLine(`returned seed: ${returnedSeed}${returnedSeed!==seed?' (differs from sent seed '+seed+')':''}`);
+  return {b64,seed:returnedSeed};
+}
+
+// ── Generate Portrait ──
+const GEN_STAGES={
+  prompt:  {label:'Building prompt',  pct:15},
+  queued:  {label:'Queued',           pct:35},
+  decoding:{label:'Rendering',        pct:80},
+  done:    {label:'Done',             pct:100},
+};
+function setGenStage(stEl,stage,detail){
+  if(!stEl)return;
+  const s=GEN_STAGES[stage];
+  stEl.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;color:${stage==='done'?'var(--acc)':'var(--creamd)'}">${detail||s.label}</span>
+      <span style="font-size:10px;color:var(--muted);font-family:var(--mono)">${s.pct}%</span>
+    </div>
+    <div style="height:2px;background:var(--bdr);border-radius:1px;overflow:hidden">
+      <div style="height:100%;width:${s.pct}%;background:${stage==='done'?'var(--acc)':'var(--priml)'};transition:width .4s ease;border-radius:1px"></div>
+    </div>`;
+}
+
+async function genPortrait(){
+  const char=getChars().find(c=>c.id===curCharId);if(!char)return;
+  const s=getSettings();
+  if(!s.veniceKey){toast('Add your Venice API key in Settings');return}
+  const btn=$('genBtn'),stEl=$('promptSt');
+  btn.disabled=true;btn.classList.add('loading');
+  try{
+    // Seed priority: manual lock > faceSeed > random
+    let seed,seedSrc;
+    if(seedLocked&&seedVal){seed=parseInt(seedVal);seedSrc='locked'}
+    else if(char.faceSeed&&!seedLocked){seed=char.faceSeed;seedSrc='faceSeed'}
+    else{seed=Math.floor(Math.random()*999999999);seedSrc='random'}
+    genLogStart(char,seed,s.model,seedSrc,!!s.orKey);
+    _genLogLine(`Pose: ${activePose?.label||'none'} | Clothing: ${activeClothing?.label||'none'} | State: ${activeState?.label||'none'}`);
+    _genLogLine(`Face ref: ${char.facePrompt?'yes ('+char.facePrompt.slice(0,60)+'…)':'none'}`);
+    setGenStage(stEl,'prompt',s.orKey?'Building AI prompt…':'Building prompt…');
+    const prompt=await buildPrompt(char,activePose,activeClothing,activeState,activeToggles,s.orKey);
+    _genLogLine(`--- Prompt (${prompt.length} chars) ---`);
+    _genLogLine(prompt);
+    _genLogLine(`--- Negative (${NEG.length} chars) ---`);
+    _genLogLine(NEG);
+    const {b64:imageData,seed:actualSeed}=await callVenice(prompt,seed,s.model,s.veniceKey,(stage,detail)=>setGenStage(stEl,stage,detail));
+    const rec={characterId:char.id,imageData,prompt,seed:actualSeed,model:s.model,poseLabel:activePose?.label||'',clothingLabel:activeClothing?.label||'',createdAt:Date.now()};
+    await DB.add(rec);
+    if(!seedLocked){seedVal=actualSeed.toString();const i=$('seedInp');if(i)i.value=seedVal}
+    genLogSave('SUCCESS');
+    curPortraits=await DB.forChar(char.id);
+    renderCarousel(char);
+    const crsl=$('crsl');if(crsl)crsl.scrollLeft=0;
+    curCarIdx=0;
+    toast('Portrait generated ✦');
+  }catch(err){
+    console.error(err);
+    logError('Portrait generation',err);
+    _genLogLine(`FATAL ERROR: ${err.message||String(err)}`);
+    genLogSave('FAILED');
+    const msg=err.message||String(err);
+    toast('Generation failed: '+msg.slice(0,60));
+    if(stEl)stEl.innerHTML=`<span style="color:#e05;font-size:11px">Failed — check Generation Log in Settings</span>`;
+  }finally{btn.disabled=false;btn.classList.remove('loading')}
+}
+
+// ── Fullscreen ──
+async function openFS(id){
+  const p=await DB.get(id);if(!p)return;
+  curFsId=id;
+  $('fsImg').src=imgSrc(p.imageData);
+  $('fsSeed').textContent=p.seed?`Seed: ${p.seed}`:'';
+  $('fsDelBtn').onclick=delFsPortrait;
+  // Face ref state
+  const char=getChars().find(c=>c.id===curCharId);
+  const isRef=char&&char.faceRefPortraitId===id;
+  const refBtn=$('fsRefBtn'),badge=$('fsFaceRefBadge');
+  if(refBtn){refBtn.textContent=isRef?'★ Face Reference':'☆ Set as Face';refBtn.classList.toggle('active',isRef)}
+  if(badge)badge.style.display=isRef?'flex':'none';
+  $('portFS').classList.add('open');
+}
+function closeFS(){$('portFS').classList.remove('open');curFsId=null}
+
+// ── Face Reference ──
+async function toggleFaceRef(){
+  if(!curFsId||!curCharId)return;
+  const chars=getChars();
+  const char=chars.find(c=>c.id===curCharId);if(!char)return;
+  if(char.faceRefPortraitId===curFsId){
+    // Already the ref — clear it
+    clearFaceRef();return;
+  }
+  await setFaceRef(curFsId);
+}
+
+async function setFaceRef(portraitId){
+  const chars=getChars();
+  const char=chars.find(c=>c.id===curCharId);if(!char)return;
+  const p=await DB.get(portraitId);if(!p)return;
+
+  // Store face seed
+  char.faceRefPortraitId=portraitId;
+  char.faceSeed=p.seed;
+
+  // Update UI immediately
+  const refBtn=$('fsRefBtn'),badge=$('fsFaceRefBadge');
+  if(refBtn){refBtn.textContent='★ Face Reference';refBtn.classList.add('active')}
+  if(badge)badge.style.display='flex';
+
+  // Save now so seed is persisted even if extract fails
+  saveChars(chars);
+  toast('Face reference set — extracting face description…');
+
+  // Extract face prompt via OpenRouter (async, non-blocking)
+  const s=getSettings();
+  if(s.orKey&&p.prompt){
+    try{
+      char.facePrompt=await extractFacePrompt(p.prompt,char,s.orKey);
+      saveChars(chars);
+      toast('Face description extracted ✦');
+    }catch(e){
+      logError('Face prompt extraction',e);
+      char.facePrompt='';
+      saveChars(chars);
+    }
+  } else {
+    char.facePrompt='';
+    saveChars(chars);
+  }
+
+  // Re-render detail to show face ref card with thumb
+  curPortraits=await DB.forChar(curCharId);
+  renderCarousel(char);
+  renderDetail(char);
+  loadFaceRefThumb(char);
+}
+
+async function extractFacePrompt(sourcePrompt,char,orKey){
+  const sys=`You are a Stable Diffusion prompt specialist. Extract ONLY the facial and physical identity tags from the given SD prompt. Output a compact comma-separated list of tags describing: face shape, eye shape and colour, nose, lips, jaw, skin tone, distinctive facial features. Do NOT include hair colour, body, clothing, pose, expression, or quality tags. Keep it under 30 tags. Output tags only — no explanation.`;
+  const usr=`Extract face identity tags from this prompt:\n${sourcePrompt}`;
+  const resp=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+orKey},
+    body:JSON.stringify({model:'deepseek/deepseek-v3-0324',messages:[{role:'system',content:sys},{role:'user',content:usr}],stream:true,max_tokens:200})
+  });
+  if(!resp.ok)throw new Error('OR '+resp.status);
+  const reader=resp.body.getReader(),dec=new TextDecoder();
+  let result='';
+  while(true){
+    const{done,value}=await reader.read();if(done)break;
+    for(const line of dec.decode(value).split('\n')){
+      if(line.startsWith('data: ')&&line!=='data: [DONE]'){
+        try{result+=(JSON.parse(line.slice(6)).choices?.[0]?.delta?.content||'')}catch{}
+      }
+    }
+  }
+  return result.trim();
+}
+
+function clearFaceRef(){
+  const chars=getChars();
+  const char=chars.find(c=>c.id===curCharId);if(!char)return;
+  delete char.faceRefPortraitId;
+  delete char.faceSeed;
+  delete char.facePrompt;
+  saveChars(chars);
+  // Update fullscreen button if open
+  const refBtn=$('fsRefBtn'),badge=$('fsFaceRefBadge');
+  if(refBtn){refBtn.textContent='☆ Set as Face';refBtn.classList.remove('active')}
+  if(badge)badge.style.display='none';
+  // Re-render
+  renderCarousel(char);
+  renderDetail(char);
+  toast('Face reference cleared');
+}
+
+async function loadFaceRefThumb(char){
+  if(!char.faceRefPortraitId)return;
+  const p=await DB.get(char.faceRefPortraitId);if(!p)return;
+  const el=$('faceRefThumb');if(!el)return;
+  const img=document.createElement('img');
+  img.src=imgSrc(p.imageData);
+  img.className='faceRefThumb';
+  el.replaceWith(img);
+}
+
+
+async function delFsPortrait(){
+  if(!curFsId)return;await DB.del(curFsId);closeFS();
+  const char=getChars().find(c=>c.id===curCharId);
+  if(char){curPortraits=await DB.forChar(char.id);renderCarousel(char);curCarIdx=0}
+  toast('Portrait deleted');
+}
+
+// ── Delete Character ──
+async function confirmDelChar(){
+  if(!curCharId)return;
+  closeModal('mDelete');
+  await DB.delForChar(curCharId);
+  saveChars(getChars().filter(c=>c.id!==curCharId));
+  curCharId=null;ctxCharId=null;showScreen('gallery');toast('Character deleted');
+}
+
+// ── Wizard ──
+let wizData={};
+
+function wizSaveSession(){
+  try{
+    const state={
+      step:wizStep,
+      fields:{
+        wizAge:$('wizAge')?.value||'',
+        wizMeas:$('wizMeas')?.value||'',
+        wizFeat:$('wizFeat')?.value||'',
+        wizNotes:$('wizNotes')?.value||'',
+        wizName:$('wizName')?.value||'',
+        wizEthn:$('wizEthn')?.value||'',
+        wizHeight:$('wizHeight')?.value||'',
+        wizStoryRole:$('wizStoryRole')?.value||'',
+        wizDynamic:$('wizDynamic')?.value||'',
+      },
+      chips:{
+        wizGenderC:getChipV('wizGenderC'),
+        wizBodyC:getChipV('wizBodyC'),
+        wizBustC:getChipV('wizBustC'),
+        wizFaceC:getChipV('wizFaceC'),
+        wizEyeC:getChipV('wizEyeC'),
+        wizHairColC:getChipV('wizHairColC'),
+        wizHairLenC:getChipV('wizHairLenC'),
+        wizHairStC:getChipV('wizHairStC'),
+        wizTraitsC:getMulChipV('wizTraitsC'),
+      }
+    };
+    sessionStorage.setItem('gogo_wiz',JSON.stringify(state));
+  }catch(e){}
+}
+
+function wizClearSession(){
+  try{sessionStorage.removeItem('gogo_wiz')}catch(e){}
+}
+
+function wizRestoreSession(state){
+  // Text fields
+  Object.entries(state.fields||{}).forEach(([id,val])=>{
+    const el=$(id);if(el)el.value=val;
+  });
+  // Single-select chips
+  const singleChips=['wizGenderC','wizBodyC','wizBustC','wizFaceC','wizEyeC','wizHairColC','wizHairLenC','wizHairStC'];
+  singleChips.forEach(gid=>{
+    const val=state.chips?.[gid];if(!val)return;
+    const el=$(gid);if(!el)return;
+    el.querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',c.dataset.val===val));
+  });
+  // Multi-select chips (traits)
+  const traits=state.chips?.wizTraitsC||[];
+  const tc=$('wizTraitsC');
+  if(tc)tc.querySelectorAll('.chip').forEach(c=>c.classList.toggle('sel',traits.includes(c.dataset.val)));
+  // Bust group visibility
+  const gender=state.chips?.wizGenderC;
+  const bg=$('wizBustGrp');if(bg)bg.style.display=gender==='Male'?'none':'';
+}
+
+function openWizard(){
+  // Check for saved session
+  let savedState=null;
+  try{const raw=sessionStorage.getItem('gogo_wiz');if(raw)savedState=JSON.parse(raw)}catch(e){}
+
+  wizStep=savedState?.step||0;
+  wizData={};wizPortrait=null;
+
+  // Reset all fields first
+  ['wizName','wizAge','wizMeas','wizFeat','wizNotes'].forEach(id=>{const e=$(id);if(e)e.value=''});
+  ['wizGenderC','wizBodyC','wizBustC','wizFaceC','wizEyeC','wizHairColC','wizHairLenC','wizHairStC','wizTraitsC'].forEach(id=>{
+    const el=$(id);if(!el)return;
+    el.querySelectorAll('.chip').forEach((c,i)=>c.classList.toggle('sel',i===0&&id==='wizGenderC'));
+  });
+
+  // Restore saved state if present
+  if(savedState){
+    wizRestoreSession(savedState);
+    toast('Resuming where you left off');
+  }
+
+  const box=$('wizPortBox');
+  if(box)box.innerHTML=`<div class="wGenOv" id="wGenOv"><div class="bigSpin"></div><p class="genHint" id="wGenHint">Building prompt…</p></div>`;
+  updateWiz();openSheet('shWiz');
+}
+
+function updateWiz(){
+  document.querySelectorAll('#wizProg .wp').forEach((el,i)=>{
+    el.classList.remove('active','done');
+    if(i<wizStep)el.classList.add('done');else if(i===wizStep)el.classList.add('active');
+  });
+  document.querySelectorAll('.wstep').forEach((el,i)=>el.classList.toggle('active',i===wizStep));
+  const titles=['Identity','Build','Appearance','Personality','Portrait Preview','Name & Save'];
+  $('wizTitle').textContent=titles[wizStep]||'New Character';
+  const back=$('wizBack'),next=$('wizNext');
+  if(back)back.style.display=wizStep===0?'none':'';
+  if(next)next.textContent=wizStep===5?'Save Character':'Continue';
+  const gender=getChipV('wizGenderC');
+  const bustG=$('wizBustGrp');if(bustG)bustG.style.display=gender==='Male'?'none':'';
+  if(wizStep===5){renderWizSummary()}
+}
+
+function wizNext(){
+  wizSaveSession();
+  if(wizStep===5){saveWizChar();return}
+  wizStep=Math.min(wizStep+1,5);
+  updateWiz();
+  if(wizStep===4)wizGenPortrait();
+}
+function wizBack(){wizSaveSession();wizStep=Math.max(wizStep-1,0);updateWiz()}
+
+async function wizGenPortrait(){
+  const s=getSettings();
+  if(!s.veniceKey){toast('Add Venice API key in Settings first');return}
+  const btn=$('wizRegenBtn');if(btn)btn.disabled=true;
+  const ov=$('wGenOv'),hint=$('wGenHint');
+  if(ov)ov.classList.remove('gone');
+  if(hint)hint.textContent=s.orKey?'Building AI prompt…':'Building prompt…';
+  const onStage=(_stage,detail)=>{if(hint)hint.textContent=detail||'…'};
+  try{
+    const wc=gatherWizData();
+    const seed=Math.floor(Math.random()*999999999);
+    genLogStart(wc,seed,s.model,'random (wizard)',!!s.orKey);
+    const prompt=await buildPrompt(wc,null,null,null,{},s.orKey);
+    _genLogLine(`--- Prompt (${prompt.length} chars) ---`);
+    _genLogLine(prompt);
+    _genLogLine(`--- Negative (${NEG.length} chars) ---`);
+    _genLogLine(NEG);
+    const {b64:imageData,seed:actualSeed}=await callVenice(prompt,seed,s.model,s.veniceKey,onStage);
+    wizPortrait={imageData,prompt,seed:actualSeed,model:s.model};
+    genLogSave('SUCCESS');
+    if(ov)ov.classList.add('gone');
+    const box=$('wizPortBox');
+    let img=box.querySelector('img');
+    if(!img){img=document.createElement('img');img.style.cssText='width:100%;height:100%;object-fit:cover';box.insertBefore(img,ov)}
+    img.src=imgSrc(imageData);
+    if(ov)box.appendChild(ov);
+  }catch(err){
+    console.error(err);
+    if(ov)ov.classList.add('gone');
+    logError('Wizard portrait generation',err);
+    _genLogLine(`FATAL ERROR: ${err.message||String(err)}`);
+    genLogSave('FAILED');
+    const msg=err.message||String(err)||'Unknown error';
+    const eb=$('wizErrBox'),em=$('wizErrMsg');
+    if(eb&&em){em.textContent=msg;eb.style.display='block'}
+  }finally{if(btn)btn.disabled=false}
+}
+
+function gatherWizData(){
+  return{
+    id:uid(),name:$('wizName').value.trim(),gender:getChipV('wizGenderC'),
+    age:$('wizAge').value,ethnicity:$('wizEthn').value,
+    build:{height:$('wizHeight').value,bodyType:getChipV('wizBodyC'),breastSize:getChipV('wizBustC'),measurements:$('wizMeas').value},
+    face:{faceShape:getChipV('wizFaceC'),eyeColor:getChipV('wizEyeC'),hairColor:getChipV('wizHairColC'),hairLength:getChipV('wizHairLenC'),hairStyle:getChipV('wizHairStC'),features:$('wizFeat').value},
+    personality:{traits:getMulChipV('wizTraitsC'),notes:$('wizNotes')?$('wizNotes').value:''}
+  };
+}
+
+async function saveWizChar(){
+  const name=$('wizName').value.trim();if(!name){toast('Enter a name');return}
+  const char=gatherWizData();char.name=name;char.id=uid();char.createdAt=Date.now();
+  const chars=getChars();chars.push(char);saveChars(chars);
+  if(wizPortrait)await DB.add({characterId:char.id,imageData:wizPortrait.imageData,prompt:wizPortrait.prompt,seed:wizPortrait.seed,model:wizPortrait.model,poseLabel:'',clothingLabel:'',createdAt:Date.now()});
+  wizClearSession();
+  closeSheet('shWiz');closeAllSheets();
+  toast(`${name} added to gallery ✦`);
+  setTimeout(()=>openChar(char.id),350);
+}
+
+function renderWizSummary(){
+  const el=$('wizSummary');if(!el)return;
+  const c=gatherWizData();
+  const items=[c.gender,c.age?`Age ${c.age}`:'',c.ethnicity||'',c.build?.bodyType||'',[c.face?.hairColor,c.face?.hairLength].filter(Boolean).join(' ')].filter(Boolean);
+  el.innerHTML=`<div class="infoCard">${items.map(i=>`<div class="infoRow"><span class="iVal">${esc(i)}</span></div>`).join('')}</div>`;
+}
+
+// ── Chip Helpers ──
+function getChipV(gid){const el=$(gid);if(!el)return'';const s=el.querySelector('.chip.sel');return s?s.dataset.val:''}
+function getMulChipV(gid){const el=$(gid);if(!el)return[];return[...el.querySelectorAll('.chip.sel')].map(c=>c.dataset.val)}
+function selChip(el,gid){$(gid).querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');
+  if(gid==='wizGenderC'){const g=el.dataset.val;const bg=$('wizBustGrp');if(bg)bg.style.display=g==='Male'?'none':''}}
+function togChip(el){el.classList.toggle('sel')}
+
+// ── Settings ──
+// Models known to support explicit/uncensored content
+const EXPLICIT_MODELS=new Set(['lustify-sdxl','fluently-xl-final','nai-banana-pro','pony-realism','realistic-vision','dreamshaper-xl']);
+
+const FALLBACK_MODELS=[
+  {id:'lustify-sdxl',name:'Lustify SDXL',explicit:true},
+  {id:'hidream-i1-fast',name:'HiDream I1 Fast',explicit:false},
+  {id:'seedream-3.0',name:'Seedream V5 Lite',explicit:false},
+  {id:'seedream-2',name:'Seedream V4',explicit:false},
+  {id:'fluently-xl-final',name:'Fluently XL',explicit:true},
+  {id:'nai-banana-pro',name:'Nano Banana Pro',explicit:true},
+];
+
+function modelLabel(id,name){
+  const isEx=EXPLICIT_MODELS.has(id)||id.includes('lustify')||id.includes('fluently')||id.includes('pony')||id.includes('banana');
+  return isEx?`🔞 ${name}`:`${name}`;
+}
+
+async function fetchVeniceModels(key){
+  const st=$('modelFetchSt'),sel=$('sModel');
+  if(!key){if(st)st.textContent='Add Venice key to load live models';return}
+  if(st)st.textContent='Loading models…';
+  try{
+    const resp=await fetch('https://api.venice.ai/api/v1/models?type=image',{
+      headers:{'Authorization':'Bearer '+key}
+    });
+    if(!resp.ok)throw new Error(resp.status);
+    const d=await resp.json();
+    const models=(d.data||[]).filter(m=>m.type==='image'&&!m.model_spec?.offline);
+    if(!models.length)throw new Error('empty');
+    const cur=sel.value;
+    sel.innerHTML=models.map(m=>{
+      const name=m.model_spec?.name||m.id;
+      return `<option value="${esc(m.id)}">${esc(modelLabel(m.id,name))}</option>`;
+    }).join('');
+    if([...sel.options].some(o=>o.value===cur))sel.value=cur;
+    else{sel.value=sel.options[0]?.value||'';saveSettingsNow();}
+    if(st)st.textContent=`${models.length} models loaded · 🔞 = explicit capable`;
+    setTimeout(()=>{if(st)st.textContent='🔞 = supports explicit content'},4000);
+  }catch(e){
+    if(st)st.textContent='Could not load live models — using defaults';
+    if(!sel.options.length){
+      sel.innerHTML=FALLBACK_MODELS.map(m=>`<option value="${m.id}">${esc(modelLabel(m.id,m.name))}</option>`).join('');
+    }
+  }
+}
+
+function syncSettings(){
+  const s=getSettings();
+  const vk=$('sVeniceKey'),ok=$('sOrKey'),m=$('sModel'),vb=$('versionBadge');
+  if(vk)vk.value=s.veniceKey||'';
+  if(ok)ok.value=s.orKey||'';
+  if(m)m.value=s.model||'lustify-sdxl';
+  if(vb)vb.textContent='v'+VERSION;
+  syncPinSettings();
+  renderErrorLog();
+  renderGenLog();
+  fetchVeniceModels(s.veniceKey);
+}
+function saveSettingsNow(){
+  LS.set('ps_settings',{
+    veniceKey:$('sVeniceKey').value.trim(),
+    orKey:$('sOrKey').value.trim(),
+    model:$('sModel').value
+  });
+}
+
+// ── PWA ──
+function setupPWA(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW reg failed:',e));
+  }
+}
+
+// ── Init ──
+async function init(){
+  setupPWA();
+  await DB.ready;
+
+  // Request persistent storage — prevents browser silently evicting IndexedDB portraits
+  if(navigator.storage&&navigator.storage.persist){
+    navigator.storage.persist().catch(()=>{});
+  }
+
+  $('scrChar').classList.add('right');
+  $('scrSettings').classList.add('right');
+  await renderGallery();
+  syncSettings();
+
+  // PIN — show lock on launch if enabled, otherwise hide screen immediately
+  if(isPINEnabled()){
+    showPinScreen();
+  } else {
+    $('pinScreen').classList.add('hidden');
+  }
+
+  // Android back — also handles dismissing PIN screen via back button
+  history.pushState(null,'',location.href);
+  window.addEventListener('popstate',()=>{
+    if($('pinScreen')&&!$('pinScreen').classList.contains('hidden')){history.pushState(null,'',location.href);return}
+    if($('portFS').classList.contains('open')){closeFS();history.pushState(null,'',location.href)}
+    else if(document.querySelector('.sheet.open')){closeAllSheets();history.pushState(null,'',location.href)}
+    else if(curScreen!=='gallery'){showScreen('gallery');history.pushState(null,'',location.href)}
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('portFS').classList.contains('open'))closeFS();else closeAllSheets()}});
+}
+init().catch(console.error);
+
+</script>
+</body>
+</html>
