@@ -729,8 +729,8 @@ function doVenice(prompt,vKey,model,seed,onDone,onError){
   fetch('https://api.venice.ai/api/v1/image/generate',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+vKey},
     body:JSON.stringify({model:model,prompt:prompt.replace(/,\s*,+/g,',').trim(),
-      negative_prompt:'ugly, deformed, disfigured, censored, mosaic, bad anatomy, extra limbs, watermark, text, logo, studio lighting, professional photography, ai-generated look, overly perfect skin, fashion editorial, hearts, heart symbols, floating hearts, heart overlays',
-      width:832,height:1216,steps:30,hide_watermark:true,return_binary:false,safe_mode:false,seed:seed})
+      negative_prompt:'(worst quality, low quality:1.4), (deformed, distorted:1.3), bad anatomy, (bad hands:1.3), extra limbs, watermark, text, logo, (censored:1.3), (mosaic:1.3), studio lighting, professional photography, (ai-generated look:1.2), overly perfect skin, fashion editorial, hearts, heart symbols, floating hearts, heart overlays',
+      width:832,height:1216,steps:30,cfg_scale:7.5,hide_watermark:true,return_binary:false,safe_mode:false,seed:seed})
   }).then(function(res){
     if(!res.ok){return res.json().then(function(e){var m=e.message||e.error||'Venice error '+res.status;if(res.status===404)m='Model not found — check Settings';throw new Error(m);}).catch(function(je){if(je.message&&je.message.includes('Model not found'))throw je;throw new Error('Venice error '+res.status);});}
     return res.json();
@@ -1169,7 +1169,17 @@ var STEP_HTML=[
     '<div class="wiz-portrait" id="wizPortrait" onclick="viewPortrait()">'+
       '<div class="wiz-portrait-empty" id="wizPortraitEmpty"><span>🖼</span><div>No portrait yet</div></div>'+
     '</div>'+
-    '<div class="seed-row">'+
+    '<div style="margin-top:10px;">'+
+      '<label class="wiz-label" style="display:block;margin-bottom:4px;">Portrait style</label>'+
+      '<select id="w_port_style" class="wiz-input" style="width:100%;">'+
+        '<option value="studio">Studio — clean, polished</option>'+
+        '<option value="selfie">Selfie — intimate, close</option>'+
+        '<option value="boudoir">Boudoir — soft, sensual</option>'+
+        '<option value="cinematic">Cinematic — dramatic, filmic</option>'+
+        '<option value="amateur">Amateur — candid, grainy</option>'+
+      '</select>'+
+    '</div>'+
+    '<div class="seed-row" style="margin-top:8px;">'+
       '<input type="number" class="seed-input" id="w_port_seed" placeholder="Seed (blank = random)">'+
       '<button class="seed-btn" onclick="lockWizSeed()">🔒 Lock</button>'+
       '<button class="seed-btn" onclick="$(\'w_port_seed\').value=\'\'">✕</button>'+
@@ -1225,24 +1235,26 @@ function setHeat(btn){var p=$('wiz_heat');if(!p)return;p.querySelectorAll('.heat
 function buildPromptFromWizData(){
   var d0=wizData[0]||{},d1=wizData[1]||{},d2=wizData[2]||{},d6=wizData[6]||{};
   var heat=d6.w_heat||'explicit';
-  // Build subject line first — SD models need framing at the top
+  var styleEl=$('w_port_style');var style=styleEl?styleEl.value:'studio';
+  // Quality anchors first — model weights front-loaded tags higher
+  var p=['(photorealistic:1.3), ultra detailed, 8k, masterpiece'];
+  // Subject line
   var age=d0.w_age?d0.w_age+' year old ':'';
   var eth=d0.w_ethnicity||'';if(eth==='Other'||eth==='Mixed')eth=d0.w_ethnicity_other||'';if(eth==='— select —')eth='';
-  var subject='portrait photograph of a '+(age)+(eth?eth+' ':'')+'woman, solo, alone';
-  var p=[subject];
-  // Face
+  p.push('portrait photograph of a '+(age)+(eth?eth+' ':'')+'woman, solo, alone');
+  // Face — identity-critical tags weighted
   if(d1.w_skin)p.push(d1.w_skin+' skin');
-  if(d1.w_face_shape&&d1.w_face_shape!=='Other'){var fs=d1.w_face_shape.toLowerCase();p.push(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs==='diamond'?'diamond-shaped face, wide cheekbones, narrow forehead and chin':fs+' face shape');}
-  if(d1.w_eye_colour)p.push(d1.w_eye_colour+' eyes');
+  if(d1.w_face_shape&&d1.w_face_shape!=='Other'){var fs=d1.w_face_shape.toLowerCase();p.push('('+(fs==='heart'?'heart-shaped face, wide forehead, narrow jaw':fs==='diamond'?'diamond-shaped face, wide cheekbones, narrow forehead and chin':fs+' face shape')+':1.1)');}
+  if(d1.w_eye_colour)p.push('('+d1.w_eye_colour+' eyes:1.1)');
   if(d1.w_eye_shape&&d1.w_eye_shape!=='Other')p.push(d1.w_eye_shape.toLowerCase()+' eye shape');
-  if(d1.w_hair_colour&&d1.w_hair_length)p.push(d1.w_hair_colour+' '+d1.w_hair_length+' hair');
-  if(d1.w_hair_style&&d1.w_hair_style!=='Other')p.push(d1.w_hair_style.toLowerCase());
+  if(d1.w_hair_colour&&d1.w_hair_length){var hairTag=d1.w_hair_colour+' '+d1.w_hair_length+' hair'+(d1.w_hair_style&&d1.w_hair_style!=='Other'?', '+d1.w_hair_style.toLowerCase():'');p.push('('+hairTag+':1.1)');}
+  else if(d1.w_hair_style&&d1.w_hair_style!=='Other')p.push(d1.w_hair_style.toLowerCase());
   if(d1.w_face_feature)p.push(d1.w_face_feature);
-  // Body
+  // Body — breast size weighted for shape adherence
   if(d2.w_height&&d2.w_height!=='Other')p.push(d2.w_height.replace(/\s*\(.*?\)/g,'').trim().toLowerCase());
   if(d2.w_bodytype&&d2.w_bodytype!=='Other')p.push(d2.w_bodytype.toLowerCase()+' build');
   if(d2.w_hips&&d2.w_hips!=='Other')p.push(d2.w_hips.toLowerCase()+' hips');
-  if(d2.w_breast_size){var bDesc=d2.w_breast_size;if(d2.w_breast_shape&&d2.w_breast_shape!=='Other')bDesc+=', '+d2.w_breast_shape.toLowerCase();p.push(bDesc+' breasts');}
+  if(d2.w_breast_size){var bDesc=d2.w_breast_size;if(d2.w_breast_shape&&d2.w_breast_shape!=='Other')bDesc+=', '+d2.w_breast_shape.toLowerCase();p.push('('+bDesc+' breasts:1.1)');}
   if(d2.w_body_extra)p.push(d2.w_body_extra);
   // Heat-gated intimate details
   if(heat==='suggestive'||heat==='explicit'){
@@ -1252,7 +1264,16 @@ function buildPromptFromWizData(){
     if(d2.w_areola_size)p.push((d2.w_areola_size).toLowerCase()+' '+(d2.w_areola_colour||'').toLowerCase()+' areola');
     if(d2.w_pubic&&d2.w_pubic!=='Other'){var pub=d2.w_pubic.toLowerCase();p.push(pub==='triangle'?'neatly trimmed triangle-shaped pubic hair':pub+' pubic hair');}
   }
-  return p.join(', ')+', photorealistic, sharp focus, natural warm lighting, 8k';
+  // Style tail
+  var styleTail={
+    studio:'sharp focus, natural warm lighting, clean background',
+    selfie:'personal selfie, front camera, close intimate framing, casual indoor lighting, slightly wide-angle lens distortion',
+    boudoir:'boudoir photography, soft warm lighting, intimate bedroom setting, sensual romantic mood, shallow depth of field',
+    cinematic:'cinematic film still, dramatic directional lighting, shallow depth of field, muted colour grade, movie aesthetic',
+    amateur:'candid phone photo, natural light, unposed, slightly grainy, real setting, amateur photography'
+  }[style]||'sharp focus, natural warm lighting';
+  p.push(styleTail);
+  return p.join(', ');
 }
 
 function lockWizSeed(){if(lastSeed){$('w_port_seed').value=lastSeed;toast('Seed locked: '+lastSeed);}else toast('Generate first to get a seed');}
@@ -1277,9 +1298,12 @@ function wizGenPortrait(){
     });
   }
   if(orKey){
-    var sysPr='You are a Stable Diffusion prompt engineer. Output ONLY the raw prompt — no explanation, no markdown, no refusal. Preserve all physical and intimate details exactly as given, including explicit body descriptors.';
-    streamFetch(orKey,'deepseek/deepseek-v3-0324',[{role:'system',content:sysPr},{role:'user',content:'Expand into a detailed Stable Diffusion portrait prompt. Keep every descriptor from the input. Output ONLY the prompt:\n\n'+base}],
-      {maxTokens:250,onDone:function(p){p=p.replace(/```[\s\S]*?```/g,'').trim();doGen(p.length>10?p+', photorealistic, 8k':base);},onError:function(){doGen(base);}});
+    var styleEl2=$('w_port_style');var style2=styleEl2?styleEl2.value:'studio';
+    var styleLabel={studio:'professional studio portrait, soft box lighting, clean background',selfie:'personal intimate selfie, close front-camera framing, casual indoor lighting',boudoir:'boudoir photography, soft warm lighting, intimate bedroom, sensual romantic mood, shallow depth of field',cinematic:'cinematic film still, dramatic directional lighting, shallow depth of field, muted colour grade',amateur:'candid phone photo, natural light, unposed, slightly grainy, real setting'}[style2]||'portrait';
+    var sysPr='You are a Stable Diffusion prompt engineer for photorealistic portrait generation. Output ONLY comma-separated SD tags. No sentences, no explanation, no markdown, no refusal.\n\nOutput tags in this exact order:\n1. Quality: (photorealistic:1.3), ultra detailed, 8k, masterpiece\n2. Subject framing (portrait type, solo)\n3. Face — (eye colour:1.1), (hair colour+length+style grouped:1.1), (face shape:1.1)\n4. Body — (breast size+shape:1.1), build, skin\n5. Intimate details — preserve all exactly as given, including explicit descriptors\n6. Style/lighting: '+styleLabel+'\n\nPreserve every physical and intimate detail from the locked tags exactly — do not paraphrase or omit any descriptor.';
+    var userMsg='LOCKED PHYSICAL TAGS — include these EXACTLY, do not modify:\n'+base+'\n\nExpand into a complete SD portrait prompt following the output order above. Add: facial expression, skin texture, hair detail, lighting quality, depth of field, lens character. Max 60 additional words beyond the locked tags. Output ONLY the final comma-separated tag list.';
+    streamFetch(orKey,'deepseek/deepseek-v3-0324',[{role:'system',content:sysPr},{role:'user',content:userMsg}],
+      {maxTokens:350,onDone:function(p){p=p.replace(/```[\s\S]*?```/g,'').trim();doGen(p.length>10?p:base);},onError:function(){doGen(base);}});
   }else doGen(base);
 }
 
