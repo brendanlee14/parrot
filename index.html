@@ -812,6 +812,18 @@ function parsePhotoTags(rawText){
     if(isScene)photos.push(t);
     return ''; // always strip from displayed text
   });
+  // Tertiary: [plain description] — model dropped the PHOTO: prefix entirely
+  // Must be >20 chars to avoid clipping markdown links/brackets; scene-word heuristic
+  clean=clean.replace(/\[([^\]]{20,})\]/g,function(_,inner){
+    var t=inner.trim();
+    var isScene=/\b(bed|bath|mirror|light|sheet|skin|bare|wet|hand|knee|skirt|lace|naked|lying|sitting|standing|thigh|pussy|breast|shirt|towel|underwear|pose|angle|selfie|camera|photo|visible|floor|wall|window|hallway|damp|slick)\b/i.test(t);
+    if(isScene)photos.push(t);
+    return ''; // always strip from displayed text
+  });
+  // Strip empty/whitespace-only brackets — catches broken tags like [\n]
+  clean=clean.replace(/\[[^\]]{0,5}\]/g,'');
+  // Clean up lone ] left behind by stripped tags
+  clean=clean.replace(/(^|\n)\s*\]\s*/g,'$1');
   clean=clean.replace(/\s{2,}/g,' ').trim();
   // Strip any remaining *action* emotes
   clean=stripAsteriskActions(clean);
@@ -1514,9 +1526,11 @@ function buildSysPrompt(){
   lines.push('— When responding to a compliment about your body');
   lines.push('— When transitioning into an explicit moment');
   lines.push('Photo content rule: '+heatPhoto);
-  lines.push('Format: [PHOTO: description] — square brackets, colon, scene. Embed at a natural pause. Be specific about pose, clothing state, setting, expression.');
+  lines.push('Format: [PHOTO: description] — square brackets, the word PHOTO, colon, then a concise visual description. NOT prose narration — SD-style visual tags: pose, body state, clothing, setting, light. Embed at a natural pause.');
   lines.push('CORRECT: [PHOTO: sitting on the edge of the bed in just a shirt, looking back over shoulder, morning light]');
   lines.push('CORRECT: [PHOTO: bathroom mirror selfie, hair damp, towel slipping, slight smirk]');
+  lines.push('CORRECT: [PHOTO: lying back on bed, skirt pushed up, lace pulled aside, hallway light, close angle]');
+  lines.push('WRONG: [i\'m on the bed. the light from the hallway is on the sheets. my knees are up...] — missing PHOTO: prefix, and the description is prose narration not visual tags. The word PHOTO and the colon are REQUIRED.');
   lines.push('WRONG: <A photo arrives. She is...> — angle brackets do NOT trigger the photo system. ONLY [PHOTO:] works.');
   lines.push('WRONG: "Here is a photo of me" with no tag — the tag must be present or no image is sent.');
   lines.push('Never announce "here\'s a photo" in words alone — the tag IS the photo. Write naturally around it.');
