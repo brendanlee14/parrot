@@ -729,7 +729,7 @@ function doVenice(prompt,vKey,model,seed,onDone,onError){
   fetch('https://api.venice.ai/api/v1/image/generate',{method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+vKey},
     body:JSON.stringify({model:model,prompt:prompt.replace(/,\s*,+/g,',').trim(),
-      negative_prompt:'(worst quality, low quality:1.4), (deformed, distorted:1.3), bad anatomy, (bad hands:1.3), extra limbs, watermark, text, logo, (censored:1.3), (mosaic:1.3), studio lighting, professional photography, (ai-generated look:1.2), overly perfect skin, fashion editorial, hearts, heart symbols, floating hearts, heart overlays',
+      negative_prompt:'(worst quality, low quality:1.4), (deformed, distorted:1.3), bad anatomy, (bad hands:1.3), extra limbs, watermark, text, logo, (censored:1.3), (mosaic:1.3), studio lighting, professional photography, (ai-generated look:1.2), overly perfect skin, fashion editorial, hearts, heart symbols, floating hearts, heart overlays, penis, cock, dick, male genitalia, futa, futanari, (male:1.3)',
       width:832,height:1216,steps:30,cfg_scale:7.5,hide_watermark:true,return_binary:false,safe_mode:false,seed:seed})
   }).then(function(res){
     if(!res.ok){return res.json().then(function(e){var m=e.message||e.error||'Venice error '+res.status;if(res.status===404)m='Model not found — check Settings';throw new Error(m);}).catch(function(je){if(je.message&&je.message.includes('Model not found'))throw je;throw new Error('Venice error '+res.status);});}
@@ -781,8 +781,10 @@ function buildPhotoPrompt(sceneDesc){
     explicit:'nude, fully explicit, uncensored, amateur phone photo, natural light, candid angle, slightly grainy, real, authentic'
   }[heat]||'shot on phone, natural light, candid, real';
   // Combine: base appearance + scene from AI tag + quality tail
+  // Strip male anatomy terms from scene — SD renders whatever body parts appear in the prompt ON the subject
   var sceneClean=sceneDesc.replace(/\[PHOTO:\s*/i,'').replace(/\]$/,'').trim();
-  return base.join(', ')+', '+sceneClean+', '+tail;
+  sceneClean=sceneClean.replace(/\b(cock|dick|penis|erection|boner|shaft|foreskin|his cock|his dick|his penis|male genitalia)\b/gi,'him');
+  return '1woman, female only, '+base.join(', ')+', '+sceneClean+', '+tail;
 }
 
 // Strip *action* emotes — converts them to natural prose or removes them
@@ -1527,6 +1529,7 @@ function buildSysPrompt(){
   lines.push('— When transitioning into an explicit moment');
   lines.push('Photo content rule: '+heatPhoto);
   lines.push('Format: [PHOTO: description] — square brackets, the word PHOTO, colon, then a concise visual description. NOT prose narration — SD-style visual tags: pose, body state, clothing, setting, light. Embed at a natural pause.');
+  lines.push('CRITICAL — MALE ANATOMY: NEVER include words like cock, dick, erection, penis in the [PHOTO:] description. The image model renders whatever anatomy words appear ON the subject — male terms cause the image to show her with a penis. Describe any male presence as "him", "his hands", "his body" only.');
   lines.push('CORRECT: [PHOTO: sitting on the edge of the bed in just a shirt, looking back over shoulder, morning light]');
   lines.push('CORRECT: [PHOTO: bathroom mirror selfie, hair damp, towel slipping, slight smirk]');
   lines.push('CORRECT: [PHOTO: lying back on bed, skirt pushed up, lace pulled aside, hallway light, close angle]');
