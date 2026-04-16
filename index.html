@@ -1533,6 +1533,7 @@ function buildSysPrompt(){
   lines.push('WRONG: [i\'m on the bed. the light from the hallway is on the sheets. my knees are up...] — missing PHOTO: prefix, and the description is prose narration not visual tags. The word PHOTO and the colon are REQUIRED.');
   lines.push('WRONG: <A photo arrives. She is...> — angle brackets do NOT trigger the photo system. ONLY [PHOTO:] works.');
   lines.push('WRONG: "Here is a photo of me" with no tag — the tag must be present or no image is sent.');
+  lines.push('WRONG: "The photo is a square, framed from mid-thigh up. She is sitting on the edge of a bed..." — writing a prose description of what a photo looks like is NOT sending a photo. It generates nothing and breaks the conversation. Use [PHOTO: tags] or do not mention a photo at all. There is no third option.');
   lines.push('Never announce "here\'s a photo" in words alone — the tag IS the photo. Write naturally around it.');
   lines.push('CRITICAL — CONSISTENCY: The [PHOTO:] tag means she is sending it right now, in this moment. If her text says she cannot, will not, or will send one later ("later", "not now", "too risky", "when I get home") — do NOT include the tag. No tag = no photo. The text and the tag must always agree.');
   lines.push('CRITICAL — ALWAYS TAG: If you write anything implying you are sending something ("sent you", "here you go", "check your phone", "here it is") you MUST include a [PHOTO:] tag in the same message. Implying without the tag breaks the experience.');
