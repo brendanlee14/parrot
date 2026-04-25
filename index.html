@@ -379,8 +379,8 @@ html,body{height:100%;overflow:hidden;font-family:'Jost',sans-serif;background:v
     <div class="set-row">
       <div class="set-label">Response Length</div>
       <select class="set-select" id="maxTokens">
-        <option value="300">Short</option><option value="500" selected>Medium</option>
-        <option value="800">Long</option><option value="1200">Very Long</option>
+        <option value="300">Short</option><option value="500">Medium</option>
+        <option value="800" selected>Long</option><option value="1200">Very Long</option>
       </select>
     </div>
     <div class="divider"></div>
@@ -757,6 +757,8 @@ function doVenice(prompt,vKey,model,seed,onDone,onError){
 // Build Venice prompt from her wizard data + scene description from AI tag
 function buildPhotoPrompt(sceneDesc){
   var d0=wizData[0]||{},d1=wizData[1]||{},d2=wizData[2]||{},d6=wizData[6]||{};
+  // Pull established scene context from session summary to anchor clothing/location
+  var sceneContext=(partner.sessionSummary&&partner.sessionSummary.current_scene)||'';
   var base=[];
   // Identity
   var age=v(d0,'w_age');var eth=eth0();
@@ -792,7 +794,16 @@ function buildPhotoPrompt(sceneDesc){
   // Strip male anatomy terms from scene — SD renders whatever body parts appear in the prompt ON the subject
   var sceneClean=sceneDesc.replace(/\[PHOTO:\s*/i,'').replace(/\]$/,'').trim();
   sceneClean=sceneClean.replace(/\b(cock|dick|penis|erection|boner|shaft|foreskin|his cock|his dick|his penis|male genitalia)\b/gi,'him');
-  return '1woman, female only, '+base.join(', ')+', '+sceneClean+', '+tail;
+  // Append session scene context for clothing/location grounding if present and not redundant
+  var contextTags='';
+  if(sceneContext){
+    var ctxClean=sceneContext.replace(/\b(cock|dick|penis|erection|boner|shaft|his cock|his dick|his penis|male genitalia)\b/gi,'him');
+    // Only use if the explicit tag doesn't already define location/clothing
+    var hasLocation=/\b(bed|bathroom|kitchen|mirror|floor|couch|sofa|chair|wall|desk|outside|balcony|room)\b/i.test(sceneClean);
+    var hasClothing=/\b(naked|nude|shirt|dress|skirt|lingerie|bra|underwear|jeans|towel|nothing)\b/i.test(sceneClean);
+    if(!hasLocation||!hasClothing)contextTags=ctxClean;
+  }
+  return '1woman, female only, '+base.join(', ')+', '+sceneClean+(contextTags?', '+contextTags:'')+', '+tail;
 }
 
 // Strip *action* emotes — converts them to natural prose or removes them
@@ -834,7 +845,8 @@ function parsePhotoTags(rawText){
   clean=clean.replace(/\[[^\]]{0,5}\]/g,'');
   // Clean up lone ] left behind by stripped tags
   clean=clean.replace(/(^|\n)\s*\]\s*/g,'$1');
-  clean=clean.replace(/\s{2,}/g,' ').trim();
+  // Normalise whitespace — preserve paragraph breaks (\n\n) for multi-bubble split, collapse inline spaces
+  clean=clean.replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim();
   // Strip any remaining *action* emotes
   clean=stripAsteriskActions(clean);
   return {cleanText:clean, photos:photos};
@@ -933,7 +945,7 @@ function sendMyPhoto(){
   var typId='typ-'+Date.now();addTyping(typId);
   busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;$('myPhotoBtn').disabled=true;$('myPhotoBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
-  var maxTok=parseInt(keys.maxTokens)||500;
+  var maxTok=parseInt(keys.maxTokens)||800;
   var stream=null,first=true;
   streamFetch(orKey,model,buildMsgs(),{maxTokens:maxTok,
     onChunk:function(txt){if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}if(stream){var p=parsePhotoTags(txt);updateStream(stream,p.cleanText||'\u2026');}},
@@ -994,7 +1006,7 @@ function requestPhoto(){
   var typId='typ-'+Date.now();addTyping(typId);
   busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;$('myPhotoBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
-  var maxTok=parseInt(keys.maxTokens)||500;
+  var maxTok=parseInt(keys.maxTokens)||800;
   var stream=null,first=true;
   streamFetch(orKey,model,apiMsgs,{maxTokens:maxTok,
     onChunk:function(txt){if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}if(stream){var parsed=parsePhotoTags(txt);updateStream(stream,parsed.cleanText||'\u2026');}},
@@ -1788,7 +1800,8 @@ function buildMsgs(){
       (s.things_said ? '— Things specifically said: '+s.things_said+'\n' : '')+
       (s.emotional_state ? '— Emotional state: '+s.emotional_state+'\n' : '')+
       (s.last_intimate ? '— Last intimate moment: '+s.last_intimate+'\n' : '')+
-      (s.unfinished ? '— What\'s unfinished: '+s.unfinished : '');
+      (s.unfinished ? '— What\'s unfinished: '+s.unfinished+'\n' : '')+
+      (s.current_scene ? '— Her current physical context (locked): '+s.current_scene : '');
     fullSys += '\n\n'+sumBlock.trim();
   }
 
@@ -1820,18 +1833,19 @@ function maybeRunSummariser(orKey){
 
   // ── Session summary call ──
   var summaryPrompt = 'Summarise this intimate conversation. Output ONLY valid JSON, no markdown, no extra text.\n\n'+
-    'Required format:\n{"arc":"...","heat":"...","things_said":"...","emotional_state":"...","last_intimate":"...","unfinished":"..."}\n\n'+
+    'Required format:\n{"arc":"...","heat":"...","things_said":"...","emotional_state":"...","last_intimate":"...","unfinished":"...","current_scene":"..."}\n\n'+
     'arc: one sentence — where the conversation started and where it sits now\n'+
     'heat: none / building / suggestive / explicit / peak\n'+
     'things_said: specific words, promises, references made that matter — comma separated\n'+
     'emotional_state: his mood and her mood right now in one sentence\n'+
     'last_intimate: the last physical or intimate moment described, briefly\n'+
-    'unfinished: anything left hanging, unresolved, or mid-scene\n\n'+
+    'unfinished: anything left hanging, unresolved, or mid-scene\n'+
+    'current_scene: where she is right now, what she is wearing (if established), what she was physically doing — this is her locked physical context\n\n'+
     'CONVERSATION:\n'+convText;
 
   streamFetch(orKey,'openai/gpt-4o-mini',
     [{role:'user',content:summaryPrompt}],
-    {maxTokens:350,
+    {maxTokens:450,
       onDone:function(raw){
         try{
           var clean=raw.replace(/```json|```/g,'').trim();
@@ -1892,7 +1906,7 @@ function sendMessage(){
   var typId='typ-'+Date.now();addTyping(typId);
   busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;$('myPhotoBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
-  var maxTok=parseInt(keys.maxTokens)||500;
+  var maxTok=parseInt(keys.maxTokens)||800;
   var stream=null,first=true;
   streamFetch(orKey,model,buildMsgs(),{maxTokens:maxTok,
     onChunk:function(txt){
