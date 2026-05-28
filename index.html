@@ -2178,11 +2178,12 @@ function runStateUpdater(orKey){
     location:st.location,outfit:st.outfit,activity:st.activity,
     warmth:st.warmth,energy:st.energy,arousal:st.arousal,
     irritation:st.irritation,anxiety:st.anxiety,desire_for_him:st.desire_for_him,
-    current_thought:st.current_thought,thinking_about_him:st.thinking_about_him
+    current_thought:st.current_thought,thinking_about_him:st.thinking_about_him,
+    open_promises:(st.open_promises||[]).map(function(p){return p.text;})
   });
   var sysPrompt='You track a fictional character\'s internal state during an intimate text conversation. Output ONLY valid JSON, no markdown.\n\n'+
     'Required format exactly:\n'+
-    '{"location":"...","outfit":"...","activity":"...","warmth":0,"energy":0,"arousal":0,"irritation":0,"anxiety":0,"desire_for_him":0,"current_thought":"...","thinking_about_him":true,"new_promises":[],"new_unresolved":[]}\n\n'+
+    '{"location":"...","outfit":"...","activity":"...","warmth":0,"energy":0,"arousal":0,"irritation":0,"anxiety":0,"desire_for_him":0,"current_thought":"...","thinking_about_him":true,"new_promises":[],"new_unresolved":[],"fulfilled_promises":[]}\n\n'+
     'Rules:\n'+
     '- location/outfit/activity: keep current value unless the new exchange clearly moved her. Be specific ("in bed, lights off" not "at home").\n'+
     '- Dimensions 0-100. Move them by small amounts (±5-15) unless the moment was strong, then ±20-30.\n'+
@@ -2195,7 +2196,8 @@ function runStateUpdater(orKey){
     '- current_thought: one short sentence of what she is actually thinking right now\n'+
     '- thinking_about_him: is he the centre of her thoughts right this second\n'+
     '- new_promises: if SHE just said she would do something later ("I\'ll send", "later", "when I get home"), add each as {"text":"...","condition":"..."}. Empty array otherwise.\n'+
-    '- new_unresolved: if HE said something she hasn\'t addressed or dodged, add it as a short string. Empty array otherwise.';
+    '- new_unresolved: if HE said something she hasn\'t addressed or dodged, add it as a short string. Empty array otherwise.\n'+
+    '- fulfilled_promises: array of EXACT promise texts (from open_promises in input) she just completed. Empty array if none.';
   var userMsg='CURRENT STATE:\n'+currentJson+'\n\nLAST EXCHANGE:\n'+exchange+'\n\nUpdated state JSON:';
   streamFetch(orKey,'openai/gpt-4o-mini',
     [{role:'system',content:sysPrompt},{role:'user',content:userMsg}],
@@ -2212,7 +2214,14 @@ function runStateUpdater(orKey){
             if(typeof u[k]==='number'){s[k]=Math.max(0,Math.min(100,Math.round(u[k])));}
           });
           if(typeof u.thinking_about_him==='boolean')s.thinking_about_him=u.thinking_about_him;
-          // Append promises (dedup by text)
+          // Drop fulfilled promises (exact text match)
+          if(Array.isArray(u.fulfilled_promises)&&u.fulfilled_promises.length){
+            s.open_promises=s.open_promises.filter(function(p){return u.fulfilled_promises.indexOf(p.text)===-1;});
+          }
+          // Drop stale promises (>48h old)
+          var staleCutoff=Date.now()-48*60*60*1000;
+          s.open_promises=s.open_promises.filter(function(p){return !p.ts||p.ts>staleCutoff;});
+          // Append new promises (dedup by text)
           if(Array.isArray(u.new_promises)){
             u.new_promises.forEach(function(p){
               if(p&&p.text&&!s.open_promises.some(function(x){return x.text===p.text;})){
@@ -2710,12 +2719,14 @@ function decideProactiveMessage(orKey){
     'Required: {"should_text": true|false, "text": "...", "reason": "..."}\n\n'+
     'Rules:\n'+
     '- should_text=true ONLY if it would feel natural and earned. Default to false.\n'+
-    '- If she owes him a promise (e.g. "I\'ll send a photo when I get home"), this is a great moment.\n'+
+    '- If she owes him a promise (e.g. "I\'ll send a photo when I get home"), this is a great moment to fulfil it.\n'+
     '- If she\'s been thinking about him and time has passed, a soft check-in fits.\n'+
     '- Real people don\'t text first that often — bias toward false.\n'+
     '- The text must be ONE short message in her voice. No quotation marks around it.\n'+
     '- Match her message style (lowercase if she lowercases, etc).\n'+
-    '- Do NOT include [PHOTO:] tags — text only.';
+    '- You MAY include a [PHOTO: scene description] tag if fulfilling a photo promise, or if state strongly suggests it (high arousal/desire, late evening, alone, thinking about him). Use sparingly — most proactive messages should be text only.\n'+
+    '- [PHOTO:] format: square brackets, the word PHOTO, colon, then SD-style visual tags (pose, setting, light, body state). Never include male anatomy words in the tag.\n'+
+    '- Photos must match her heat level from the persona.';
   var userMsg='HER PERSONA (excerpt):\n'+(partner.systemPrompt||'').slice(0,1800)+
     '\n\nHER CURRENT STATE:\n'+JSON.stringify({
       location:st.location,outfit:st.outfit,activity:st.activity,
