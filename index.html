@@ -2042,7 +2042,7 @@ function buildStateBlock(){
   return lines.join('\n');
 }
 
-function buildMsgs(){
+function buildMsgs(extraThought){
   var sys = partner.systemPrompt||'You are a warm, intimate AI companion. Be engaging and personal.';
   var realMsgs = getRealMsgs();
 
@@ -2062,6 +2062,19 @@ function buildMsgs(){
       ?partner.sessionSummary.emotional_state
       :getSessionMood();
     fullSys += '\n\nCURRENT MOOD:\n— '+autoMood+'\n— Let this colour her tone and availability. Do not announce it.';
+  }
+
+  // ── PRE-THINK INJECTION (Phase 4) — only when conversation is charged ──
+  if(extraThought&&typeof extraThought==='object'){
+    var t=extraThought;
+    var thoughtBlock='HER INNER THOUGHT RIGHT NOW (write her reply consistent with this — there is a beat of processing before her words):';
+    if(t.emotional_reaction)thoughtBlock+='\n— She felt: '+t.emotional_reaction;
+    if(t.what_she_wants_to_say)thoughtBlock+='\n— First impulse (may filter): '+t.what_she_wants_to_say;
+    if(t.what_she_wont_say)thoughtBlock+='\n— Holding back: '+t.what_she_wont_say;
+    if(t.reply_strategy)thoughtBlock+='\n— Strategy: '+t.reply_strategy;
+    if(t.tone)thoughtBlock+='\n— Tone: '+t.tone;
+    thoughtBlock+='\nLet the beat exist before her words. Do not narrate the thought — embody it.';
+    fullSys += '\n\n'+thoughtBlock;
   }
 
   // ── BELOW THRESHOLD: send everything raw ──
@@ -2254,6 +2267,70 @@ function runStateUpdater(orKey){
   );
 }
 
+// ─── PHASE 4 — TWO-PASS THINKING (only when conversation is charged) ───
+// Gates the expensive pre-think pass so it only runs at moments that earn it.
+function shouldRunTwoPass(){
+  ensureState();
+  var st=partner.state;
+  // High emotional dimensions = always think first
+  if(st.arousal>=50)return true;
+  if(st.anxiety>=55)return true;
+  if(st.irritation>=50)return true;
+  if(st.desire_for_him>=75)return true;
+  // Open promises or unresolved threads — moments of weight
+  if(st.open_promises&&st.open_promises.length)return true;
+  if(st.unresolved_threads&&st.unresolved_threads.length)return true;
+  // Long silence — re-entry moment
+  var lastEvent=Math.max(st.last_user_msg_ts||0,st.last_her_msg_ts||0);
+  if(lastEvent&&(Date.now()-lastEvent)>60*60*1000)return true;
+  // Recent charged content in the conversation
+  var heat=(wizData[6]||{}).w_heat||'';
+  if(heat==='explicit'){
+    var realMsgs=getRealMsgs();
+    var lastFew=realMsgs.slice(-4).map(function(m){return m.content;}).join(' ').toLowerCase();
+    if(/\b(want|need|miss|fuck|cock|wet|hard|naked|nude|come|fingers|tongue|kiss|touch|inside|tell me|imagine|fantasy|cry|fight|angry|love|sorry|leave|stay|together)\b/.test(lastFew))return true;
+  }
+  return false;
+}
+
+// Run a short pre-think pass — outputs her inner state-of-mind before she replies
+function runPreThinkPass(orKey,cb){
+  ensureState();
+  var st=partner.state;
+  var realMsgs=getRealMsgs();
+  var lastFew=realMsgs.slice(-4).map(function(m){return (m.role==='user'?'HIM':'HER')+': '+m.content;}).join('\n');
+  var sysPrompt='You simulate the inner thought of a fictional character before she replies in an intimate text conversation. Output ONLY valid JSON, no markdown.\n\n'+
+    'Required format: {"emotional_reaction":"...","what_she_wants_to_say":"...","what_she_wont_say":"...","reply_strategy":"...","tone":"..."}\n\n'+
+    'Field rules:\n'+
+    '- emotional_reaction: what she felt the moment she read his last message (one sentence)\n'+
+    '- what_she_wants_to_say: her unfiltered first impulse (one sentence)\n'+
+    '- what_she_wont_say: what she is holding back — vulnerability, anger, desire (one sentence)\n'+
+    '- reply_strategy: one of: direct / deflect / tease / pull back / mirror / lean in / change subject / soften / push\n'+
+    '- tone: one of: warm / cool / sharp / playful / wanting / withholding / soft / amused / hurt / dry';
+  var userMsg='HER PERSONA (excerpt):\n'+(partner.systemPrompt||'').slice(0,1500)+
+    '\n\nHER CURRENT STATE:\n'+JSON.stringify({
+      warmth:st.warmth,desire_for_him:st.desire_for_him,arousal:st.arousal,
+      irritation:st.irritation,anxiety:st.anxiety,
+      current_thought:st.current_thought,thinking_about_him:st.thinking_about_him,
+      open_promises:(st.open_promises||[]).map(function(p){return p.text;})
+    })+
+    '\n\nRECENT EXCHANGE:\n'+lastFew+
+    '\n\nHer inner thought right now (JSON only):';
+  streamFetch(orKey,'openai/gpt-4o-mini',
+    [{role:'system',content:sysPrompt},{role:'user',content:userMsg}],
+    {maxTokens:250,
+      onDone:function(raw){
+        try{
+          var clean=raw.replace(/```json|```/g,'').trim();
+          var r=JSON.parse(clean);
+          cb(r);
+        }catch(e){cb(null);}
+      },
+      onError:function(){cb(null);}
+    }
+  );
+}
+
 // ─── RESPONSE TIMING (Phase 2) ───
 // Compute realistic read receipt and typing delays based on her attachment style,
 // current emotional state, and time of day. Returns ms values.
@@ -2340,19 +2417,26 @@ function sendMessage(){
     typingShownAt=Date.now();
     maybeDeliver();
   },readDelay+typingPreDelay);
-  // 3) Fire LLM call silently in background
-  streamFetch(orKey,model,buildMsgs(),{maxTokens:maxTok,
-    onChunk:function(){}, // no live display \u2014 pacing handles it
-    onDone:function(txt){llmText=txt;maybeDeliver();},
-    onError:function(err){
-      llmError=err||new Error('Error');
-      removeEl(typId);
-      addError(err?err.message:'Error');
-      setStatus(getNormalStatus());
-      $('hdrAvatar').classList.remove('pulsing');
-      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
-    }
-  });
+  // 3) Optional pre-think pass (Phase 4) \u2014 gates on charged conversation moments
+  function fireMain(thought){
+    streamFetch(orKey,model,buildMsgs(thought),{maxTokens:maxTok,
+      onChunk:function(){}, // no live display \u2014 pacing handles it
+      onDone:function(txt){llmText=txt;maybeDeliver();},
+      onError:function(err){
+        llmError=err||new Error('Error');
+        removeEl(typId);
+        addError(err?err.message:'Error');
+        setStatus(getNormalStatus());
+        $('hdrAvatar').classList.remove('pulsing');
+        busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
+      }
+    });
+  }
+  if(shouldRunTwoPass()){
+    runPreThinkPass(orKey,function(thought){fireMain(thought);});
+  }else{
+    fireMain(null);
+  }
   function maybeDeliver(){
     if(llmText===null||typingShownAt===null)return;
     // Ensure typing indicator has been visible for a realistic duration
