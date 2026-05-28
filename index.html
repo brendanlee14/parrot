@@ -2625,6 +2625,162 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 window.addEventListener('beforeunload',function(){save();});
 
 // ═══════════════════════════════════════════════════
+// PHASE 3 — BACKGROUND AGENT LOOP (proactive messaging)
+// ═══════════════════════════════════════════════════
+var PROACTIVE_TICK_MS=60000;       // check once a minute
+var PROACTIVE_DAILY_CAP=3;         // light proactivity per user choice
+var PROACTIVE_MIN_COOLDOWN=4*60*1000; // 4 min minimum between checks
+var proactiveTimer=null;
+
+function todayKey(){var d=new Date();return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();}
+
+function startProactiveLoop(){
+  if(proactiveTimer)return;
+  proactiveTimer=setInterval(proactiveTick,PROACTIVE_TICK_MS);
+  // Eager tick on visibility return (e.g., user reopens app)
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible')setTimeout(proactiveTick,2000);
+  });
+}
+
+function proactiveTick(){
+  if(document.visibilityState!=='visible')return;
+  if(busy)return;
+  if(!partner||!partner.name||partner.name==='Your Companion')return;
+  // Don't fire during wizard, settings, PIN, or contacts screen
+  var wiz=$('wizardOverlay');if(wiz&&wiz.classList.contains('open'))return;
+  var pin=$('pinLock');if(pin&&pin.classList.contains('open'))return;
+  var sheet=document.querySelector('.sheet-overlay.open');if(sheet)return;
+  var contacts=$('contactsScreen');if(contacts&&contacts.style.display==='flex')return;
+  // Need a key and prior conversation
+  var keys=getKeys();if(!keys.orKey)return;
+  var realMsgs=getRealMsgs();if(realMsgs.length<2)return;
+
+  ensureState();
+  var st=partner.state;
+  var now=Date.now();
+
+  // Daily reset
+  var tk=todayKey();
+  if(st.proactive_day_key!==tk){st.proactive_day_key=tk;st.proactive_count_today=0;}
+  if((st.proactive_count_today||0)>=PROACTIVE_DAILY_CAP)return;
+
+  // Min cooldown between checks
+  if(st.next_proactive_check_ts>now)return;
+  st.next_proactive_check_ts=now+PROACTIVE_MIN_COOLDOWN;
+
+  // Silence threshold scales with attachment style + state
+  var att=((wizData[5]||{}).w_attachment||'').toLowerCase();
+  var minSilence=30*60*1000; // 30min default
+  if(att.indexOf('avoidant')>-1)minSilence=4*60*60*1000;
+  else if(att.indexOf('anxious')>-1)minSilence=12*60*1000;
+  else if(att.indexOf('fearful')>-1)minSilence=60*60*1000;
+  if(st.desire_for_him>=70)minSilence=Math.floor(minSilence/2);
+  if(st.irritation>=50)minSilence*=2;
+
+  var lastEvent=Math.max(st.last_user_msg_ts||0,st.last_her_msg_ts||0);
+  if(!lastEvent){var lm=realMsgs[realMsgs.length-1];if(lm&&lm.ts)lastEvent=lm.ts;}
+  if(!lastEvent)return;
+  if(now-lastEvent<minSilence)return;
+
+  // Probability gate
+  var prob=0.12;
+  if(att.indexOf('anxious')>-1)prob=0.25;
+  else if(att.indexOf('avoidant')>-1)prob=0.05;
+  else if(att.indexOf('fearful')>-1)prob=0.10;
+  if(st.desire_for_him>=70)prob+=0.15;
+  if(st.thinking_about_him)prob+=0.10;
+  if(st.open_promises&&st.open_promises.length)prob+=0.20;
+  if(st.unresolved_threads&&st.unresolved_threads.length)prob+=0.08;
+  prob=Math.min(prob,0.6);
+
+  if(Math.random()>prob)return;
+  // Gate passed — ask the model
+  decideProactiveMessage(keys.orKey);
+}
+
+function decideProactiveMessage(orKey){
+  ensureState();
+  var st=partner.state;
+  var realMsgs=getRealMsgs();
+  var convoCtx=realMsgs.slice(-5).map(function(m){return (m.role==='user'?'HIM':'HER')+': '+m.content;}).join('\n');
+  var lastEvent=Math.max(st.last_user_msg_ts||0,st.last_her_msg_ts||0);
+  var minutesSince=lastEvent?Math.round((Date.now()-lastEvent)/60000):0;
+  var sysPrompt='You decide whether a fictional character should text someone first (proactively, unprompted) in an ongoing intimate conversation. Output ONLY valid JSON.\n\n'+
+    'Required: {"should_text": true|false, "text": "...", "reason": "..."}\n\n'+
+    'Rules:\n'+
+    '- should_text=true ONLY if it would feel natural and earned. Default to false.\n'+
+    '- If she owes him a promise (e.g. "I\'ll send a photo when I get home"), this is a great moment.\n'+
+    '- If she\'s been thinking about him and time has passed, a soft check-in fits.\n'+
+    '- Real people don\'t text first that often — bias toward false.\n'+
+    '- The text must be ONE short message in her voice. No quotation marks around it.\n'+
+    '- Match her message style (lowercase if she lowercases, etc).\n'+
+    '- Do NOT include [PHOTO:] tags — text only.';
+  var userMsg='HER PERSONA (excerpt):\n'+(partner.systemPrompt||'').slice(0,1800)+
+    '\n\nHER CURRENT STATE:\n'+JSON.stringify({
+      location:st.location,outfit:st.outfit,activity:st.activity,
+      warmth:st.warmth,desire_for_him:st.desire_for_him,arousal:st.arousal,
+      anxiety:st.anxiety,irritation:st.irritation,
+      thinking_about_him:st.thinking_about_him,current_thought:st.current_thought,
+      open_promises:st.open_promises,unresolved_threads:st.unresolved_threads
+    })+
+    '\n\nCONTEXT:\n— Minutes since last exchange: '+minutesSince+
+    '\n— Time of day: '+new Date().toLocaleTimeString()+
+    '\n\nRECENT MESSAGES:\n'+(convoCtx||'(none)')+
+    '\n\nShould she text him right now? Output JSON only:';
+  streamFetch(orKey,'openai/gpt-4o-mini',
+    [{role:'system',content:sysPrompt},{role:'user',content:userMsg}],
+    {maxTokens:250,
+      onDone:function(raw){
+        try{
+          var clean=raw.replace(/```json|```/g,'').trim();
+          var r=JSON.parse(clean);
+          if(r.should_text===true&&r.text&&typeof r.text==='string'&&r.text.length<800){
+            deliverProactiveMessage(r.text.trim(),orKey);
+          }
+        }catch(e){}
+      },
+      onError:function(){}
+    }
+  );
+}
+
+function deliverProactiveMessage(text,orKey){
+  if(busy)return; // someone started typing — abort
+  ensureState();
+  // Brief typing indicator scaled with length
+  var typingDur=Math.min(2200+text.length*30,7000);
+  setStatus('typing…','status-typing');
+  $('hdrAvatar').classList.add('pulsing');
+  var typId='proactiv-'+Date.now();
+  addTyping(typId);
+  setTimeout(function(){
+    removeEl(typId);
+    var parsed=parsePhotoTags(text);
+    var cleanTxt=parsed.cleanText.trim();
+    if(!cleanTxt){
+      setStatus(getNormalStatus());
+      $('hdrAvatar').classList.remove('pulsing');
+      return;
+    }
+    var chunks=cleanTxt.split(/\n\n+/).map(function(s){return s.trim();}).filter(Boolean);
+    if(!chunks.length)chunks=[cleanTxt];
+    showChunksWithFlicker(chunks,0,function(){
+      msgs.push({role:'assistant',content:cleanTxt,ts:Date.now(),proactive:true});
+      setStatus(getNormalStatus());
+      $('hdrAvatar').classList.remove('pulsing');
+      ensureState();
+      partner.state.proactive_count_today=(partner.state.proactive_count_today||0)+1;
+      partner.state.last_her_msg_ts=Date.now();
+      save();
+      // Run summariser + state updater silently
+      if(orKey){maybeRunSummariser(orKey);runStateUpdater(orKey);}
+    });
+    parsed.photos.forEach(function(desc){firePhoto(desc);});
+  },typingDur);
+}
+
+// ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
 loadKeys();
@@ -2636,6 +2792,8 @@ loadAll(function(){
   // Show contacts screen (or PIN first if set)
   initPin(); // shows PIN if set — PIN unlock will call openContactsScreen()
   if(!getPin()){openContactsScreen();}
+  // Start background agent loop (Phase 3)
+  startProactiveLoop();
 });
 $('messages').addEventListener('scroll',function(){var m=$('messages');var atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<60;$('scrollBtn').style.display=atBottom?'none':'';});
 </script>
