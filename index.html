@@ -567,7 +567,23 @@ var activeId=null;    // id of the contact currently open in chat
 var isNewContact=false; // true while wizard is creating a brand-new contact
 
 function mkId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
-function blankPartner(){return {name:'',systemPrompt:'',appearance:'',imageB64:null,wizData:{},sessionSummary:null,longTermMemory:[],summaryUpToIdx:0};}
+function defaultState(){
+  return {
+    location:'',outfit:'',activity:'',
+    warmth:60,energy:50,arousal:0,irritation:0,anxiety:20,desire_for_him:50,
+    current_thought:'',thinking_about_him:false,
+    open_promises:[],unresolved_threads:[],
+    last_state_update_idx:0,last_user_msg_ts:0,last_her_msg_ts:0,
+    next_proactive_check_ts:0,proactive_count_today:0,proactive_day_key:''
+  };
+}
+function ensureState(){
+  if(!partner.state)partner.state=defaultState();
+  // Migration: backfill missing fields on older saves
+  var d=defaultState();
+  Object.keys(d).forEach(function(k){if(partner.state[k]===undefined)partner.state[k]=d[k];});
+}
+function blankPartner(){return {name:'',systemPrompt:'',appearance:'',imageB64:null,wizData:{},sessionSummary:null,longTermMemory:[],summaryUpToIdx:0,state:defaultState()};}
 
 // Flush working partner/msgs into the active contacts slot
 function saveContact(){
@@ -584,6 +600,7 @@ function loadContact(id){
   partner=JSON.parse(JSON.stringify(c.partner));
   msgs=JSON.parse(JSON.stringify(c.msgs));
   if(partner.wizData)wizData=Object.assign({},partner.wizData);
+  ensureState();
 }
 
 // ── INDEXEDDB STORAGE ──
@@ -984,7 +1001,7 @@ function sendMyPhoto(){
               var userRows=document.querySelectorAll('.msg-row.user');
               if(userRows.length){var tick=document.createElement('div');tick.style.cssText='font-size:.55rem;color:var(--accent);text-align:right;padding:0 14px 2px;';tick.textContent='\u2713\u2713 read';userRows[userRows.length-1].after(tick);}
               setStatus(getNormalStatus());$('hdrAvatar').classList.remove('pulsing');
-              save();maybeRunSummariser(orKey);
+              save();maybeRunSummariser(orKey);runStateUpdater(orKey);
               busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;$('myPhotoBtn').disabled=false;
             }
           },delay);
@@ -992,7 +1009,7 @@ function sendMyPhoto(){
         });
       } else {
         setStatus(getNormalStatus());$('hdrAvatar').classList.remove('pulsing');
-        save();maybeRunSummariser(orKey);
+        save();maybeRunSummariser(orKey);runStateUpdater(orKey);
         busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;$('myPhotoBtn').disabled=false;
       }
       parsed.photos.forEach(function(desc){firePhoto(desc);});
@@ -1049,7 +1066,7 @@ function requestPhoto(){
       setStatus(getNormalStatus());
       $('hdrAvatar').classList.remove('pulsing');
       save();
-      maybeRunSummariser(orKey);
+      maybeRunSummariser(orKey);runStateUpdater(orKey);
       busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
     },
     onError:function(err){
@@ -1916,10 +1933,43 @@ function finishWizard(){
   partner.systemPrompt=buildSysPrompt();
   partner.appearance=buildAppearanceStr();
   partner.wizData=wizData;
+  // Seed initial state for new contacts only — preserve evolved state for edits
+  if(isNewContact||!partner.state){
+    partner.state=seedStateFromWizard();
+  }
   var wasNew=isNewContact;
   isNewContact=false;
   save();updateHeader();updateBackBtn();closeWizard();
   if(wasNew)toast(partner.name+' created ✓');else toast('Companion saved ✓');
+}
+
+function seedStateFromWizard(){
+  var s=defaultState();
+  var d0=wizData[0]||{},d4=wizData[4]||{},d5=wizData[5]||{},d6=wizData[6]||{};
+  // Seed warmth/anxiety from attachment style
+  var att=(d5.w_attachment||'').toLowerCase();
+  if(att.indexOf('secure')>-1){s.warmth=70;s.anxiety=15;}
+  else if(att.indexOf('anxious')>-1){s.warmth=65;s.anxiety=55;}
+  else if(att.indexOf('avoidant')>-1){s.warmth=45;s.anxiety=30;}
+  else if(att.indexOf('fearful')>-1){s.warmth=50;s.anxiety=50;}
+  // Seed desire from heat level and what she wants
+  var heat=d6.w_heat||'explicit';
+  if(heat==='explicit')s.desire_for_him=60;
+  else if(heat==='suggestive')s.desire_for_him=45;
+  else s.desire_for_him=30;
+  // Seed energy from time of day
+  var h=new Date().getHours();
+  if(h<7||h>23)s.energy=30;
+  else if(h<10)s.energy=55;
+  else if(h<18)s.energy=65;
+  else if(h<22)s.energy=55;
+  else s.energy=40;
+  // Seed location from her situation
+  var sit=(d0.w_situation||'').toLowerCase();
+  if(sit.indexOf('work')>-1){s.location='at her desk';s.activity='between tasks';}
+  else if(sit.indexOf('late night')>-1||sit.indexOf('in bed')>-1){s.location='in bed';s.activity='on her phone';}
+  else if(sit.indexOf('after something')>-1){s.location='somewhere she can be alone';s.thinking_about_him=true;}
+  return s;
 }
 
 // ═══════════════════════════════════════════════════
@@ -1952,12 +2002,52 @@ function getRealMsgs(){
   return msgs.filter(function(m){return m.role!=='photo'&&m.content&&m.content.trim();});
 }
 
+function buildStateBlock(){
+  ensureState();
+  var st=partner.state;
+  // Skip if state is still defaults — nothing to anchor yet
+  if(!st.location&&!st.outfit&&!st.activity&&!st.current_thought&&!st.open_promises.length)return '';
+  var lines=['HER STATE RIGHT NOW (real-time internal tracking — this is who she is in this exact moment, do not contradict it):'];
+  if(st.location)lines.push('— Location: '+st.location);
+  if(st.outfit)lines.push('— Wearing: '+st.outfit);
+  if(st.activity)lines.push('— Doing: '+st.activity);
+  // Mood vector — only surface dimensions that are not at default
+  var dims=[];
+  if(st.warmth>=70)dims.push('warm and open');
+  else if(st.warmth<=35)dims.push('cool, distant');
+  if(st.energy<=30)dims.push('low energy, tired');
+  else if(st.energy>=75)dims.push('high energy, alert');
+  if(st.arousal>=60)dims.push('aroused, already wanting');
+  else if(st.arousal>=30)dims.push('a little turned on under it');
+  if(st.irritation>=40)dims.push('irritated, edge of patience');
+  if(st.anxiety>=55)dims.push('anxious, in her head');
+  if(st.desire_for_him>=70)dims.push('strongly wanting him specifically');
+  else if(st.desire_for_him<=25)dims.push('emotionally pulled back from him');
+  if(dims.length)lines.push('— Mood: '+dims.join(', '));
+  if(st.current_thought)lines.push('— On her mind: '+st.current_thought);
+  if(st.thinking_about_him)lines.push('— She has been thinking about him specifically');
+  if(st.open_promises&&st.open_promises.length){
+    lines.push('— She owes him these things (she has not done them yet, do not pretend she has):');
+    st.open_promises.forEach(function(p){lines.push('  · '+p.text);});
+  }
+  if(st.unresolved_threads&&st.unresolved_threads.length){
+    lines.push('— Unresolved between them:');
+    st.unresolved_threads.forEach(function(t){lines.push('  · '+t);});
+  }
+  lines.push('Behave consistently with this state. If she said she was in the kitchen, she is still in the kitchen unless the conversation moved her. Mood drives tone — do not write warmth when she is cool.');
+  return lines.join('\n');
+}
+
 function buildMsgs(){
   var sys = partner.systemPrompt||'You are a warm, intimate AI companion. Be engaging and personal.';
   var realMsgs = getRealMsgs();
 
   // Base system: prompt + time context
   var fullSys = sys + '\n\n' + buildTimeContext();
+
+  // Internal state block — real-time tracking of where she is and how she feels
+  var stateBlock = buildStateBlock();
+  if(stateBlock) fullSys += '\n\n' + stateBlock;
 
   // Mood — priority: manual seed > session summary emotional_state > random session mood
   var moodSeed = getKeys().moodSeed||'';
@@ -2074,12 +2164,90 @@ function maybeRunSummariser(orKey){
     }
   );
 }
+
+// ─── INTERNAL STATE UPDATER ───
+// Runs after every AI reply. Cheap, JSON-only, silent.
+function runStateUpdater(orKey){
+  ensureState();
+  var realMsgs=getRealMsgs();
+  if(realMsgs.length<2)return; // need at least one exchange
+  var last2=realMsgs.slice(-2);
+  var exchange=last2.map(function(m){return (m.role==='user'?'HIM: ':'HER: ')+m.content;}).join('\n');
+  var st=partner.state;
+  var currentJson=JSON.stringify({
+    location:st.location,outfit:st.outfit,activity:st.activity,
+    warmth:st.warmth,energy:st.energy,arousal:st.arousal,
+    irritation:st.irritation,anxiety:st.anxiety,desire_for_him:st.desire_for_him,
+    current_thought:st.current_thought,thinking_about_him:st.thinking_about_him
+  });
+  var sysPrompt='You track a fictional character\'s internal state during an intimate text conversation. Output ONLY valid JSON, no markdown.\n\n'+
+    'Required format exactly:\n'+
+    '{"location":"...","outfit":"...","activity":"...","warmth":0,"energy":0,"arousal":0,"irritation":0,"anxiety":0,"desire_for_him":0,"current_thought":"...","thinking_about_him":true,"new_promises":[],"new_unresolved":[]}\n\n'+
+    'Rules:\n'+
+    '- location/outfit/activity: keep current value unless the new exchange clearly moved her. Be specific ("in bed, lights off" not "at home").\n'+
+    '- Dimensions 0-100. Move them by small amounts (±5-15) unless the moment was strong, then ±20-30.\n'+
+    '- warmth: how open/cool she is toward him right now\n'+
+    '- energy: physical/mental energy level\n'+
+    '- arousal: sexual arousal in this moment\n'+
+    '- irritation: how annoyed she is with him right now\n'+
+    '- anxiety: how in-her-head she is\n'+
+    '- desire_for_him: how much she wants him specifically (not just sex)\n'+
+    '- current_thought: one short sentence of what she is actually thinking right now\n'+
+    '- thinking_about_him: is he the centre of her thoughts right this second\n'+
+    '- new_promises: if SHE just said she would do something later ("I\'ll send", "later", "when I get home"), add each as {"text":"...","condition":"..."}. Empty array otherwise.\n'+
+    '- new_unresolved: if HE said something she hasn\'t addressed or dodged, add it as a short string. Empty array otherwise.';
+  var userMsg='CURRENT STATE:\n'+currentJson+'\n\nLAST EXCHANGE:\n'+exchange+'\n\nUpdated state JSON:';
+  streamFetch(orKey,'openai/gpt-4o-mini',
+    [{role:'system',content:sysPrompt},{role:'user',content:userMsg}],
+    {maxTokens:300,
+      onDone:function(raw){
+        try{
+          var clean=raw.replace(/```json|```/g,'').trim();
+          var u=JSON.parse(clean);
+          ensureState();
+          var s=partner.state;
+          // Apply scalar updates
+          ['location','outfit','activity','current_thought'].forEach(function(k){if(typeof u[k]==='string')s[k]=u[k];});
+          ['warmth','energy','arousal','irritation','anxiety','desire_for_him'].forEach(function(k){
+            if(typeof u[k]==='number'){s[k]=Math.max(0,Math.min(100,Math.round(u[k])));}
+          });
+          if(typeof u.thinking_about_him==='boolean')s.thinking_about_him=u.thinking_about_him;
+          // Append promises (dedup by text)
+          if(Array.isArray(u.new_promises)){
+            u.new_promises.forEach(function(p){
+              if(p&&p.text&&!s.open_promises.some(function(x){return x.text===p.text;})){
+                s.open_promises.push({text:p.text,condition:p.condition||'',ts:Date.now()});
+              }
+            });
+            // Cap at 8 most recent
+            if(s.open_promises.length>8)s.open_promises=s.open_promises.slice(-8);
+          }
+          // Append unresolved threads (dedup, cap at 5)
+          if(Array.isArray(u.new_unresolved)){
+            u.new_unresolved.forEach(function(t){
+              if(typeof t==='string'&&t.length>5&&s.unresolved_threads.indexOf(t)===-1){
+                s.unresolved_threads.push(t);
+              }
+            });
+            if(s.unresolved_threads.length>5)s.unresolved_threads=s.unresolved_threads.slice(-5);
+          }
+          s.last_state_update_idx=realMsgs.length;
+          s.last_her_msg_ts=Date.now();
+          save();
+        }catch(e){}
+      },
+      onError:function(){}
+    }
+  );
+}
+
 function sendMessage(){
   if(busy)return;
   var input=$('msgInput'),text=input.value.trim();if(!text)return;
   var keys=getKeys(),orKey=keys.orKey||'';
   if(!orKey){toast('Add OpenRouter key in Settings ⚙');openSettings();return;}
   if(!partner.name||partner.name==='Your Companion'){toast('Set up your companion first');openWizard();return;}
+  ensureState();partner.state.last_user_msg_ts=Date.now();
   msgs.push({role:'user',content:text,ts:Date.now()});
   addBubble('user',text);
   // send button pop
@@ -2132,7 +2300,7 @@ function sendMessage(){
         setStatus(getNormalStatus());
         $('hdrAvatar').classList.remove('pulsing');
         save();
-        maybeRunSummariser(orKey);
+        maybeRunSummariser(orKey);runStateUpdater(orKey);
         busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
       }
       // Fire Venice for each [PHOTO: ...] tag
