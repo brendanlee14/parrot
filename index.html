@@ -2241,6 +2241,57 @@ function runStateUpdater(orKey){
   );
 }
 
+// ─── RESPONSE TIMING (Phase 2) ───
+// Compute realistic read receipt and typing delays based on her attachment style,
+// current emotional state, and time of day. Returns ms values.
+function computeReadDelay(){
+  ensureState();
+  var st=partner.state;
+  var att=((wizData[5]||{}).w_attachment||'').toLowerCase();
+  // Base 1.5s-4s
+  var d=1500+Math.random()*2500;
+  // Attachment modifier
+  if(att.indexOf('avoidant')>-1)d+=2000+Math.random()*6000; // 2-8s slower
+  else if(att.indexOf('anxious')>-1)d=Math.max(600,d-1500); // faster
+  else if(att.indexOf('fearful')>-1)d+=Math.random()*3000;
+  // Irritation slows reads
+  if(st.irritation>=40)d+=1000+Math.random()*2000;
+  // High desire speeds them up
+  if(st.desire_for_him>=70)d=Math.max(600,d-1000);
+  // Late night = slower (she might be drowsy)
+  var h=new Date().getHours();
+  if(h<7||h>23)d+=Math.random()*1500;
+  return Math.round(d);
+}
+function computeTypingPreDelay(){
+  ensureState();
+  var st=partner.state;
+  var att=((wizData[5]||{}).w_attachment||'').toLowerCase();
+  var d=600+Math.random()*1800;
+  if(att.indexOf('avoidant')>-1)d+=Math.random()*2500;
+  if(st.arousal>=60||st.desire_for_him>=70)d=Math.max(300,d-600);
+  if(st.anxiety>=55)d+=Math.random()*1500;
+  return Math.round(d);
+}
+function computeBetweenBubbleDelay(prevChunk,nextChunk){
+  // Brief pause + length-aware typing time for the next chunk
+  var base=500+Math.random()*900;
+  base+=Math.min(nextChunk.length*8,1800);
+  return Math.round(base);
+}
+function addReadTick(){
+  var userRows=document.querySelectorAll('.msg-row.user');
+  if(!userRows.length)return;
+  // Don't double-add
+  var last=userRows[userRows.length-1];
+  if(last.nextSibling&&last.nextSibling.dataset&&last.nextSibling.dataset.readTick)return;
+  var tick=document.createElement('div');
+  tick.dataset.readTick='1';
+  tick.style.cssText='font-size:.55rem;color:var(--accent);text-align:right;padding:0 14px 2px;';
+  tick.textContent='✓✓ read';
+  last.after(tick);
+}
+
 function sendMessage(){
   if(busy)return;
   var input=$('msgInput'),text=input.value.trim();if(!text)return;
@@ -2255,70 +2306,95 @@ function sendMessage(){
   setTimeout(function(){$('sendBtn').classList.remove('sending');},220);
   input.value='';input.style.height='';autoGrow(input);
   $('emptyChat').style.display='none';
-  // typing state
-  setStatus('typing\u2026','status-typing');
-  $('hdrAvatar').classList.add('pulsing');
-  var typId='typ-'+Date.now();addTyping(typId);
   busy=true;$('sendBtn').disabled=true;$('camBtn').disabled=true;$('myPhotoBtn').disabled=true;
   var model=keys.chatModel||'deepseek/deepseek-v3.2-20251201';
   var maxTok=parseInt(keys.maxTokens)||800;
-  var stream=null,first=true;
+  // Paced response: compute realistic read + typing delays, run LLM silently, then deliver
+  var readDelay=computeReadDelay();
+  var typingPreDelay=computeTypingPreDelay();
+  var typId='typ-'+Date.now();
+  var typingShownAt=null;
+  var llmText=null;
+  var llmError=null;
+  // 1) Schedule read tick
+  setTimeout(function(){if(!llmError)addReadTick();},readDelay);
+  // 2) Schedule typing indicator
+  setTimeout(function(){
+    if(llmError)return;
+    setStatus('typing\u2026','status-typing');
+    $('hdrAvatar').classList.add('pulsing');
+    addTyping(typId);
+    typingShownAt=Date.now();
+    maybeDeliver();
+  },readDelay+typingPreDelay);
+  // 3) Fire LLM call silently in background
   streamFetch(orKey,model,buildMsgs(),{maxTokens:maxTok,
-    onChunk:function(txt){
-      if(first){removeEl(typId);stream=addBubble('assistant','',true);first=false;}
-      if(stream){var p=parsePhotoTags(txt);updateStream(stream,p.cleanText||'\u2026');}
-    },
-    onDone:function(txt){
-      removeEl(typId);
-      if(stream){stream.remove();stream=null;}
-      var parsed=parsePhotoTags(txt);
-      var cleanTxt=parsed.cleanText.trim();
-      if(cleanTxt){
-        // split into multi-bubble chunks on paragraph breaks
-        var chunks=cleanTxt.split(/\n\n+/).map(function(s){return s.trim();}).filter(Boolean);
-        if(!chunks.length)chunks=[cleanTxt];
-        var delay=0;
-        chunks.forEach(function(chunk,i){
-          setTimeout(function(){
-            addBubble('assistant',chunk);
-            if(i===chunks.length-1){
-              msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
-              // read receipt under last user message
-              var userRows=document.querySelectorAll('.msg-row.user');
-              if(userRows.length){var tick=document.createElement('div');tick.style.cssText='font-size:.55rem;color:var(--accent);text-align:right;padding:0 14px 2px;';tick.textContent='\u2713\u2713 read';userRows[userRows.length-1].after(tick);}
-              setStatus(getNormalStatus());
-              $('hdrAvatar').classList.remove('pulsing');
-              save();
-              maybeRunSummariser(orKey);
-              busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
-            }
-          },delay);
-          delay+=400+Math.min(chunk.length*4,600);
-        });
-      } else {
-        // AI sent only a photo tag
-        setStatus(getNormalStatus());
-        $('hdrAvatar').classList.remove('pulsing');
-        save();
-        maybeRunSummariser(orKey);runStateUpdater(orKey);
-        busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
-      }
-      // Fire Venice for each [PHOTO: ...] tag
-      parsed.photos.forEach(function(desc){firePhoto(desc);});
-      // If AI implied sending a photo but forgot the tag, fire a fallback
-      if(!parsed.photos.length){
-        var impliedPhoto=/\b(sent\s+you|sending\s+you|check\s+your\s+phone|here(?:'s|\s+is)\s+(?:a\s+|my\s+)?(?:pic|photo|image|shot)|here\s+it\s+is|look\s+at\s+this|this\s+is\s+for\s+you)\b/i.test(cleanTxt);
-        if(impliedPhoto)firePhoto(buildDefaultSceneDesc());
-      }
-    },
+    onChunk:function(){}, // no live display \u2014 pacing handles it
+    onDone:function(txt){llmText=txt;maybeDeliver();},
     onError:function(err){
-      removeEl(typId);if(stream)stream.remove();
+      llmError=err||new Error('Error');
+      removeEl(typId);
       addError(err?err.message:'Error');
       setStatus(getNormalStatus());
       $('hdrAvatar').classList.remove('pulsing');
       busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
     }
   });
+  function maybeDeliver(){
+    if(llmText===null||typingShownAt===null)return;
+    // Ensure typing indicator has been visible for a realistic duration
+    // Min 1.5s; scale up with response length (~25 chars per "second of typing")
+    var minTypingMs=Math.min(1500+Math.round(llmText.length*40),8000);
+    var elapsed=Date.now()-typingShownAt;
+    var wait=Math.max(0,minTypingMs-elapsed);
+    setTimeout(deliver,wait);
+  }
+  function deliver(){
+    removeEl(typId);
+    var parsed=parsePhotoTags(llmText);
+    var cleanTxt=parsed.cleanText.trim();
+    if(cleanTxt){
+      var chunks=cleanTxt.split(/\n\n+/).map(function(s){return s.trim();}).filter(Boolean);
+      if(!chunks.length)chunks=[cleanTxt];
+      showChunksWithFlicker(chunks,0,function(){
+        msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
+        setStatus(getNormalStatus());
+        $('hdrAvatar').classList.remove('pulsing');
+        save();
+        maybeRunSummariser(orKey);runStateUpdater(orKey);
+        busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
+      });
+    } else {
+      setStatus(getNormalStatus());
+      $('hdrAvatar').classList.remove('pulsing');
+      save();
+      maybeRunSummariser(orKey);runStateUpdater(orKey);
+      busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
+    }
+    parsed.photos.forEach(function(desc){firePhoto(desc);});
+    if(!parsed.photos.length){
+      var impliedPhoto=/\b(sent\s+you|sending\s+you|check\s+your\s+phone|here(?:'s|\s+is)\s+(?:a\s+|my\s+)?(?:pic|photo|image|shot)|here\s+it\s+is|look\s+at\s+this|this\s+is\s+for\s+you)\b/i.test(cleanTxt);
+      if(impliedPhoto)firePhoto(buildDefaultSceneDesc());
+    }
+  }
+}
+
+// Show multi-bubble chunks with typing indicator flicker between them
+function showChunksWithFlicker(chunks,idx,done){
+  if(idx>=chunks.length){done();return;}
+  addBubble('assistant',chunks[idx]);
+  if(idx===chunks.length-1){done();return;}
+  // Brief flicker \u2014 typing indicator reappears before next bubble
+  var flickerId='flick-'+Date.now()+'-'+idx;
+  var preGap=200+Math.random()*400;
+  setTimeout(function(){
+    addTyping(flickerId);
+    var typingDur=computeBetweenBubbleDelay(chunks[idx],chunks[idx+1]);
+    setTimeout(function(){
+      removeEl(flickerId);
+      showChunksWithFlicker(chunks,idx+1,done);
+    },typingDur);
+  },preGap);
 }
 
 // ═══════════════════════════════════════════════════
