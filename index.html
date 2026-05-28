@@ -2034,6 +2034,10 @@ function buildStateBlock(){
     lines.push('— Unresolved between them:');
     st.unresolved_threads.forEach(function(t){lines.push('  · '+t);});
   }
+  if(st.last_life_events&&st.last_life_events.length){
+    lines.push('— WHAT HAPPENED IN HER LIFE WHILE THEY WERE NOT TALKING (this is fresh, surfaces naturally if relevant — do not announce as a report):');
+    st.last_life_events.forEach(function(e){lines.push('  · '+e);});
+  }
   lines.push('Behave consistently with this state. If she said she was in the kitchen, she is still in the kitchen unless the conversation moved her. Mood drives tone — do not write warmth when she is cool.');
   return lines.join('\n');
 }
@@ -2369,6 +2373,8 @@ function sendMessage(){
         msgs.push({role:'assistant',content:cleanTxt,ts:Date.now()});
         setStatus(getNormalStatus());
         $('hdrAvatar').classList.remove('pulsing');
+        // Consume life events once injected — clear so they don't repeat in future prompts
+        if(partner.state){partner.state.last_life_events=null;}
         save();
         maybeRunSummariser(orKey);runStateUpdater(orKey);
         busy=false;$('sendBtn').disabled=false;$('camBtn').disabled=false;$('myPhotoBtn').disabled=false;
@@ -2634,6 +2640,79 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 window.addEventListener('beforeunload',function(){save();});
 
 // ═══════════════════════════════════════════════════
+// PHASE 5 — LIFE EVENT INJECTION (between-session simulation)
+// ═══════════════════════════════════════════════════
+// On app open / visibility return after >30min absence, generate what happened
+// in her world during the gap. Applied to state, injected once into next prompt.
+function maybeRunLifeEvent(){
+  if(!partner||!partner.name||partner.name==='Your Companion')return;
+  ensureState();
+  var st=partner.state;
+  var lastEvent=Math.max(st.last_user_msg_ts||0,st.last_her_msg_ts||0);
+  if(!lastEvent){
+    var realMsgs=getRealMsgs();
+    if(realMsgs.length){var lm=realMsgs[realMsgs.length-1];if(lm.ts)lastEvent=lm.ts;}
+  }
+  if(!lastEvent)return;
+  var gap=Date.now()-lastEvent;
+  if(gap<30*60*1000)return; // need 30min+ gap
+  if(st.last_life_event_ts&&st.last_life_event_ts>lastEvent)return; // already generated for this gap
+  var keys=getKeys();if(!keys.orKey)return;
+
+  var d4=wizData[4]||{};
+  var hoursGap=Math.round(gap/3600000);
+  var minutesGap=Math.round(gap/60000);
+  var sinceDesc=hoursGap>=24?Math.round(hoursGap/24)+' days':hoursGap>=1?hoursGap+' hours':minutesGap+' minutes';
+
+  var sysPrompt='Generate what happened in a fictional character\'s life during a gap in conversation. Output ONLY JSON.\n\n'+
+    'Required: {"events":["...","..."],"mood_shift":{"warmth":0,"energy":0,"anxiety":0,"arousal":0,"irritation":0,"desire_for_him":0},"current_location":"...","current_activity":"...","current_outfit":"...","thinking_about_him":true,"current_thought":"..."}\n\n'+
+    'Rules:\n'+
+    '- 1-3 brief events that fit her job, lifestyle, and the time of day\n'+
+    '- Events should feel ordinary and specific — not melodramatic\n'+
+    '- mood_shift values: small deltas -15 to +15\n'+
+    '- current_location/activity/outfit reflect plausible now-state\n'+
+    '- Time gap: '+sinceDesc+'\n'+
+    '- Current time: '+new Date().toLocaleString();
+  var userMsg='HER PERSONA (excerpt):\n'+(partner.systemPrompt||'').slice(0,1500)+
+    '\n\nJOB: '+(d4.w_job||'unknown')+
+    '\nLIFESTYLE: '+(d4.w_lifestyle||'unknown')+
+    '\nRECURRING DETAIL: '+(d4.w_recurring||'(none)')+
+    '\n\nTime since last message: '+sinceDesc+
+    '\n\nGenerate what happened. JSON only:';
+  streamFetch(keys.orKey,'openai/gpt-4o-mini',
+    [{role:'system',content:sysPrompt},{role:'user',content:userMsg}],
+    {maxTokens:350,
+      onDone:function(raw){
+        try{
+          var clean=raw.replace(/```json|```/g,'').trim();
+          var r=JSON.parse(clean);
+          ensureState();
+          var s=partner.state;
+          if(r.mood_shift&&typeof r.mood_shift==='object'){
+            ['warmth','energy','anxiety','arousal','irritation','desire_for_him'].forEach(function(k){
+              if(typeof r.mood_shift[k]==='number'){
+                s[k]=Math.max(0,Math.min(100,(s[k]||50)+Math.round(r.mood_shift[k])));
+              }
+            });
+          }
+          if(typeof r.current_location==='string'&&r.current_location)s.location=r.current_location;
+          if(typeof r.current_activity==='string'&&r.current_activity)s.activity=r.current_activity;
+          if(typeof r.current_outfit==='string'&&r.current_outfit)s.outfit=r.current_outfit;
+          if(typeof r.current_thought==='string'&&r.current_thought)s.current_thought=r.current_thought;
+          if(typeof r.thinking_about_him==='boolean')s.thinking_about_him=r.thinking_about_him;
+          if(Array.isArray(r.events)&&r.events.length){
+            s.last_life_events=r.events;
+            s.last_life_event_ts=Date.now();
+          }
+          save();
+        }catch(e){}
+      },
+      onError:function(){}
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════════
 // PHASE 3 — BACKGROUND AGENT LOOP (proactive messaging)
 // ═══════════════════════════════════════════════════
 var PROACTIVE_TICK_MS=60000;       // check once a minute
@@ -2646,9 +2725,12 @@ function todayKey(){var d=new Date();return d.getFullYear()+'-'+d.getMonth()+'-'
 function startProactiveLoop(){
   if(proactiveTimer)return;
   proactiveTimer=setInterval(proactiveTick,PROACTIVE_TICK_MS);
-  // Eager tick on visibility return (e.g., user reopens app)
+  // On visibility return: run life event generator first, then proactive check
   document.addEventListener('visibilitychange',function(){
-    if(document.visibilityState==='visible')setTimeout(proactiveTick,2000);
+    if(document.visibilityState==='visible'){
+      maybeRunLifeEvent();
+      setTimeout(proactiveTick,2000);
+    }
   });
 }
 
@@ -2805,6 +2887,8 @@ loadAll(function(){
   if(!getPin()){openContactsScreen();}
   // Start background agent loop (Phase 3)
   startProactiveLoop();
+  // Generate life events if user has been away (Phase 5)
+  maybeRunLifeEvent();
 });
 $('messages').addEventListener('scroll',function(){var m=$('messages');var atBottom=m.scrollHeight-m.scrollTop-m.clientHeight<60;$('scrollBtn').style.display=atBottom?'none':'';});
 </script>
